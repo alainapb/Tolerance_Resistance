@@ -1,0 +1,476 @@
+---
+title: "script"
+author: "APB"
+date: "12/16/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+library(tidyverse)
+library(patchwork)
+library(AICcmodavg)
+library(bbmle)
+library(car)
+library(knitr)
+library(tidyr)
+library(sjstats) 
+library(lme4)
+
+#setwd()
+
+####Color Theme####
+
+```
+
+
+
+
+```{r load_data, include=FALSE}
+
+##Feeding Rate data
+data<-read.csv("AJV2_6Nov2019_JLH.csv")
+
+#Life table data
+life<-read.csv("LifeTable_AJV2_3Dec2019.csv")
+
+#check data
+head(data)
+
+head(life)
+
+#merge data together
+left_join(data, life, by=c("Genotype", "Spore_level", "Animal", "Infected_Uninfected")) %>%
+  mutate(Individual_ID = paste(Genotype, 
+                               Spore_level, 
+                               Animal, 
+                               sep = "_")) %>%
+  as.data.frame() -> all.data.joined
+
+names(all.data.joined)
+
+##removing unnecessary columns
+drops <- c("Sex.y", "Length_Day_7", "Length_Day_20", "DOB")
+all.data.joined<-all.data.joined[ , !(names(all.data.joined) %in% drops)]
+
+##Remove males from dataframe
+all.female<-subset(all.data.joined, all.data.joined$Sex.x == "F")
+```
+
+
+
+
+```{r load_PO_data, echo =FALSE}
+##adding AJ2 active phenoloxidase data
+all_po_data<-read.csv("AJ2_PO_for_R.csv", header=TRUE)
+
+##cleaning PO data 
+
+##Removing time point 0
+subset(all_po_data, all_po_data$Time !="0")->po_data
+##Removing NAs
+subset(po_data, po_data$Abs != "na")->po_data
+##Making all the data numeric
+as.character(po_data$Abs)->po_data$Abs
+as.numeric(po_data$Abs)->po_data$Abs
+as.character(po_data$Prop_inf)->po_data$Prop_inf
+as.numeric(po_data$Prop_inf)->po_data$Prop_inf
+
+####po_data includes:Genotypes (control=PBS), Spores (exposed to), ####
+## Sample (sample number), Replicate (2 reps from each sample),
+## time (in hours), Abs (absorbance value), and 
+## Prop_inf (proportion of infected individuals in the sample)
+```
+
+
+
+
+```{r calculate_feeding_rate_means_for_each_individual, include=TRUE}
+
+#### Means of the controls  - these means for each treatment (i.e., plate_control) are then used in the calculation below ####
+summary_df <- all.female %>%
+  group_by(Plate_Control) %>%
+  mutate(Control_mean = mean(USE_Control_Flour_Reading, na.rm = T)) %>%
+  select(Plate_Control, Control_mean) %>%
+  distinct() %>% as.data.frame()
+
+#remove extra row
+summary_df  <- summary_df[!(summary_df$Plate_Control == ""),]
+
+#match control mean with plate treatment
+map = setNames(summary_df$Control_mean,summary_df$Plate_Control)
+all.female$Control_mean <- map[as.character(all.female$Plate)]
+all.female$Control_mean
+
+v = 10 
+## volume, mL
+t = 7  
+##time, hours
+k= all.female$Control_mean/all.female$Flourometry_Reading 
+##difference in feeding compared to control
+
+##calculate feeding rate (Sarnelle and Wilson)
+all.female$fr_sw <- log(k) * (v/t)
+
+#calculate mean fluor reading per animal (keep rate > 0)
+animal_mean <- all.female %>%
+  #keep fr_sw values > 0
+  filter(fr_sw > 0) %>%
+  #group based on these variables
+  group_by(Genotype, Spore_level, Animal, Plate, Control_mean) %>%
+  #means based on groups above
+  summarise(mean_size_animal = mean(Size_mm2, na.rm = TRUE),
+            mean_length_animal = mean(Length_mm, na.rm=TRUE),
+            mean_fluor_animal = mean(Flourometry_Reading, na.rm = TRUE),
+            susc = mean(Susceptible, na.rm = TRUE),
+            inf = mean(Infected, na.rm = TRUE),
+            spores_ul=mean(Spores_ul, na.rm = TRUE))
+animal_mean
+
+##calcualte feeding rate for each animal
+animal_mean$fr_sw<-log(animal_mean$Control_mean/animal_mean$mean_fluor_animal) * (v/t)
+
+##size correcting feeding rate for each animal
+animal_mean$sc_fr<-animal_mean$fr_sw/animal_mean$mean_size_animal
+
+
+```
+
+
+
+```{r explore_individual_data, include = FALSE}
+ggplot(filter(animal_mean, inf != "NaN"), mapping=aes(y=fr_sw, x= Spore_level, color= as.factor(inf)))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  facet_grid(.~Genotype)+
+  theme_bw()
+
+library(viridis)
+ggplot(filter(animal_mean, spores_ul != "NaN"), mapping=aes(y=fr_sw, x= Spore_level, color= spores_ul),alpha=0.5)+
+  geom_point()+
+  scale_color_viridis(option = "C")+
+  facet_grid(.~Genotype)+
+  theme_bw()
+```
+
+
+
+
+```{r calculate_averages, echo = FALSE}
+##find averages and se for each Genotype * Spore_level
+exp_av<-animal_mean %>%
+  group_by(Genotype, Spore_level, inf) %>%
+  summarise(fr = mean(fr_sw, na.rm = T), #average feeding rate
+            av_fr = mean(sc_fr, na.rm=T), #average size corrected feeding rate 
+            sd = sd(fr_sw, na.rm = T), #sd feeding rate
+            sd_fr = sd(sc_fr, na.rm=T), # sd size corrected feeding rate
+            count = length(sc_fr), # count per genotype*spore level
+            se= sd/sqrt(count), #se of feeding rate
+            se_fr = sd_fr/sqrt(count), # se of size corrected feeding rate
+            spores = mean(spores_ul, na.rm=T), # average spores_ul
+            spore_count = length(spores_ul), na.rm=T, # count of infected animals
+            spore_sd = sd(spores_ul, na.rm=T), # sd of spores_ul
+            spore_se = spore_sd/sqrt(spore_count)) %>%  #se of spores_ul
+   dplyr::select(c(1,2,3,4,5,9, 10, 11,15)) 
+
+#remove the NAs in inf
+exp_av<-filter(exp_av, inf != "NaN")
+
+```
+
+
+
+
+```{r plot_of_averages, echo = FALSE}
+#plot using size corrected averages and se
+
+(ggplot()+
+    geom_point(data=exp_av, mapping=aes(x=Spore_level, y=av_fr, fill=as.factor(inf)),
+               size=5, pch=22)+
+    scale_fill_manual(values=c("grey", "limegreen"))+
+    geom_errorbar(data=exp_av, mapping=aes(x=Spore_level, 
+                                           ymin=av_fr-se_fr,
+                                           ymax=av_fr+se_fr),
+                  width=0.2)+
+    facet_grid(.~Genotype)+
+    theme_classic()+
+    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
+    theme(panel.border = element_rect(color="black", fill="NA", size=.5))+
+    labs(x="Exposure spore level", y="Foraging Rate At Exposure"))
+
+
+#plot using averages and se
+
+Feed<-ggplot()+
+    geom_point(data=exp_av, mapping=aes(x=Spore_level, y=fr, fill=as.factor(inf)),
+               size=5, pch=22)+
+    scale_fill_manual(values=c("grey", "limegreen"))+
+    geom_errorbar(data=exp_av, mapping=aes(x=Spore_level, 
+                                           ymin=fr-se,
+                                           ymax=fr+se),
+                  width=0.2)+
+    facet_grid(.~Genotype)+
+    theme_classic()+
+    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
+    theme(panel.border = element_rect(color="black", fill="NA", size=.5),
+          axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank())+
+    labs(x="Exposure spore level", y="Feeding Rate")
+
+```
+
+
+
+
+```{r explore_data, include = FALSE}
+
+#feeding rate and size (length^2)
+with(animal_mean, plot(fr_sw ~ mean_size_animal))
+with(animal_mean, cor.test(fr_sw, mean_size_animal)) #r=.22 ***
+
+with(animal_mean, plot(log(fr_sw) ~ mean_size_animal)) 
+with(animal_mean, cor.test(log(fr_sw), mean_size_animal)) #r =.15 **
+
+summary(with(animal_mean, lm(fr_sw~ mean_size_animal))) # r =  0.049, and R2 = 0.046 ***
+
+
+#feeding rate and length
+with(animal_mean, plot(fr_sw ~ mean_length_animal))
+with(animal_mean, cor.test(fr_sw, mean_length_animal)) # r = 0.21 ***
+
+with(animal_mean, plot(log(fr_sw) ~ mean_length_animal)) 
+with(animal_mean, cor.test(log(fr_sw), mean_length_animal)) #r =.15 **
+
+summary(with(animal_mean, lm(fr_sw~ mean_length_animal))) # r = 0.045, and R2 = 0.042 ***
+
+
+#feeding rate and length^3
+animal_mean$mean_length_cubed<-(animal_mean$mean_length_animal^3)
+
+with(animal_mean, plot(fr_sw ~ mean_length_cubed))
+with(animal_mean, cor.test(fr_sw, mean_length_cubed)) # r = 0.23 ***
+
+with(animal_mean, plot(log(fr_sw) ~mean_length_cubed)) 
+with(animal_mean, cor.test(log(fr_sw), mean_length_cubed)) #r =.16 ***
+
+summary(with(animal_mean, lm(fr_sw~ mean_length_cubed))) # r = 0.053, and R2 = 0.049 ***
+
+```
+
+
+
+
+```{r explore_PO_data, include = FALSE}
+
+basic<-lm(Abs ~ Time, data=po_data)
+summary(basic)
+
+(prelim_plot<-ggplot(po_data, aes(x=Time, y =Abs)) +
+    geom_point() +
+    geom_smooth(method="lm")+
+    theme_classic())
+
+(color_plot<-ggplot(po_data, aes(x=Time, y =Abs, color=Genotype)) +
+    geom_point()+
+    theme_classic())
+
+##testing a general model for everything
+all.glm<-glm(Abs ~ Time + Genotype + Spores + Prop_inf, data=po_data)                      
+summary(all.glm)
+
+mixed.lmer<-lmer(Abs ~ Time + (1|Genotype) + Spores, data=po_data)
+summary(mixed.lmer)
+
+plot(mixed.lmer)
+qqnorm(resid(mixed.lmer))
+qqline(resid(mixed.lmer))
+
+(mm_plot<-ggplot(po_data, aes(x=Time, y=Abs, color=Spores)) +
+    facet_wrap(~Genotype, nrow= 2) +
+    geom_point(alpha=0.5) +
+    theme_classic())
+
+#### Plots for 4.5 hour time point ####
+
+#subset the data to only include time "4.5"
+subset(po_data, po_data$Time == "4.5")->po4.5
+
+##Does level of exposure and infection status predict the amount of active PO?
+# Thoughts: If an ind. fights off infection they will have high active PO;
+# if an ind. trys to fight off an infection and fails they will have low active PO = resources used elsewhere
+(inf_plot_4.5<-ggplot(subset(po4.5, Genotype != "Control"), aes(x=Spores, y=Prop_inf, color=Abs))+
+    scale_color_gradient(low = "white", high = "darkblue")+
+    theme_classic()+
+    geom_point() +
+    facet_wrap(~Genotype))
+
+
+### Now look at the change in abs which equivalent to the amount of active PO produced ####
+#ADD CHANGE IN ABS (ACTIVE PHENOLOXIDASE)
+initial<-subset(po_data, po_data$Time == 1)
+#calculating the change in absorbance
+delta_po<-po4.5$Abs - initial$Abs
+# multiplying by 1000 to get "activity units" (Mucklow & Ebert, 2003)
+delta_po<-delta_po*1000
+# adding the delta_po values back to dataframe
+initial$delta_po<-delta_po
+
+##Does level of exposure and infection status predict the amount of active PO?
+(active_po_plot<-ggplot(subset(initial, Genotype != "Control"), 
+                        aes(x=Spores, y=Prop_inf, 
+                            size=delta_po, color=delta_po))+
+    scale_color_gradient(low = "white", high = "darkblue")+
+    theme_classic()+
+    geom_point() +
+    labs(x="Spore level (spores/ml)", y="Proportion of individuals infected")+
+    facet_wrap(~Genotype))
+
+##Another way of looking at the same data 
+ggplot(subset(initial, Genotype != "Control"),aes(x=Spores, y=delta_po, color=Genotype, size=Prop_inf)) + 
+  geom_point() +
+  theme_classic()
+
+#same as above without Genotype coloring
+ggplot(subset(initial, Genotype != "Control"),aes(x=Spores, y=delta_po, size=Prop_inf)) + 
+  geom_point() +
+  theme_classic()
+
+####1/15/20 Clay suggests a ANCOVA for data analysis -- covariate = Prop_inf####
+
+#with interaction : Proportion infected significant
+fit1<-aov(delta_po ~ Genotype + Spores * Prop_inf, data=subset(initial,Genotype!="Control")) 
+summary(fit1)
+#without interaction : Proportion infected and Genotype significant
+fit2<-aov(delta_po ~ Genotype + Spores + Prop_inf -1 , data=subset(initial,Genotype!="Control")) 
+summary(fit2)
+#No interaction between spore level & proportion of infected individuals
+anova(fit1,fit2) 
+
+####The best model?? ####
+
+summary(lm(delta_po ~ Genotype + Spores + Prop_inf -1, data=subset(initial,Genotype!="Control")))
+# Standard is significantly different than the other genotypes
+# As spore level increases, so does active PO
+# As the number of infected individuals in a sample increase, active PO decreases
+
+## All these make sense ^^^
+
+#increased spores leads to higher active PO (seems to be driven by two points)
+(ggplot(subset(initial, Genotype != "Control"), aes(x=Spores, y=delta_po))+
+    geom_point()+
+    geom_smooth(method="lm")+
+    theme_classic())
+
+#increased proportion infected leads to lower active PO (seems to be driven by two points)
+(ggplot(subset(initial, Genotype != "Control"), aes(x=Prop_inf, y=delta_po))+
+    geom_point()+
+    geom_smooth(method="lm")+
+    theme_classic())
+
+# add a binomial line to the figures ^^^^
+# and run binomial glm
+
+```
+
+
+
+
+```{r average_PO_plot, echo = FALSE}
+#make average phenoloxidase data 
+
+po_av<-initial %>%
+  group_by(Genotype, Spores) %>%
+  summarise(av_delta_po = mean(delta_po, na.rm = T), #average active phenoloxidase
+            sd = sd(delta_po, na.rm = T), #sd active phenoloxidase
+            count = length(delta_po), # count per genotype*spore level
+            se= sd/sqrt(count), #se of active phenolxidase
+            inf = mean(Prop_inf, na.rm=T), # average proportion infected
+            sd_inf = sd(Prop_inf, na.rm=T), #sd of proportion infected
+            inf_se = sd_inf/sqrt(count)) %>% 
+  dplyr::select(c(1,2,3,6,7,9))
+
+
+
+PO<-ggplot()+
+    geom_point(subset(po_av, Genotype != 'Control'), mapping=aes(x=Spores, y=av_delta_po),
+               size=5, pch=22)+
+    geom_errorbar(subset(po_av, Genotype != 'Control'), mapping=aes(x=Spores, 
+                                           ymin=av_delta_po-se,
+                                           ymax=av_delta_po+se),
+                  width=0.2)+
+    facet_grid(.~Genotype)+
+    theme_classic()+
+    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
+    theme(panel.border = element_rect(color="black", fill="NA", size=.5),
+          axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          strip.text.x = element_blank())+
+    labs(x="Exposure spore level", y="Active Phenoloxidase")
+```
+
+
+
+
+```{r percent_infected_plot, echo = FALSE}
+#find the percent infected per Genotype and Spore level
+
+infection<-animal_mean %>%
+  group_by(Genotype, Spore_level) %>%
+  summarise(infected = mean(inf, na.rm = T), #average infected
+            sd = sd(inf, na.rm = T), #sd infected
+            count = length(inf), # count per genotype*spore level
+            se= sd/sqrt(count)) %>%#se of infected 
+  dplyr::select(c(1,2,3,6))
+
+# make figure
+
+PInf<-ggplot()+
+    geom_point(infection, mapping=aes(x=Spore_level, y=infected),
+               size=5, pch=22)+
+    geom_errorbar(infection, mapping=aes(x=Spore_level, 
+                                           ymin=infected-se,
+                                           ymax=infected+se),
+                  width=0.2)+
+    facet_grid(.~Genotype)+
+    theme_classic()+
+    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
+    theme(panel.border = element_rect(color="black", fill="NA", size=.5),
+          axis.title.x=element_blank(),
+         axis.text.x=element_blank(),
+         axis.ticks.x=element_blank(),
+         strip.text.x = element_blank())+
+    labs(y="Percent Infected")
+
+```
+
+
+
+
+```{r spore_yield_plot, echo = FALSE}
+
+Spore<-ggplot()+
+    geom_point(subset(exp_av, inf == 1), mapping=aes(x=Spore_level, y=spores),size=5, pch=22)+
+    geom_errorbar(subset(exp_av, inf == 1), mapping=aes(x=Spore_level, 
+                                           ymin=spores-spore_se,
+                                           ymax=spores+spore_se),
+                  width=0.2)+
+    facet_grid(.~Genotype)+
+    theme_classic()+
+    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
+    theme(panel.border = element_rect(color="black", fill="NA", size=.5),
+          strip.text.x = element_blank())+
+    labs(x="Exposure spore level", y="Spore Yield (spores/ul)")
+
+```
+
+
+
+
+```{r Figure_1, echo = FALSE}
+Feed / PO / PInf / Spore
+```
+
+
