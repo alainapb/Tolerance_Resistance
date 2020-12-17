@@ -628,7 +628,169 @@ Feed / PO / PInf / Spore / Repo
 
 
 
-```{r survival_analyses, echo = FALSE}
+```{r pairwise_analyses, echo = FALSE}
+
+# Genotypes:
+# A'45 == 
+# Midland 252 == no PIA 
+# Midland 281 ==
+# Standard == exhibits PIA and appears to be Tolerant 
+
+
+library(multcomp)
+
+# define the contrast matrix
+# use -1 for the baseline group (Standard) 
+# seperate analysis by Spore levels (0, 150, and 300)
+
+
+# Compare Standard against each other Genotype
+cmat <- rbind("A45.v.Std" = c1 <- c(1,0,0,-1),
+              "Mid252.v.Std" = c2 <- c(0,1,0,-1),
+              "Mid281.v.Std"  = c3 <- c(0,0,1,-1))
+
+cmat
+
+#########################
+##### Spore Level 0 #####
+#########################
+
+d_0<-subset(animal_mean, Spore_level == 0)
+
+
+## Are feeding rates different? ##
+summary(b1<-glm(sc_fr ~ Genotype, d_0, family = gaussian()))
+
+
+with(d_0, levels(Genotype))
+
+summary(multcomp::glht(b1, linfct = cmat))
+plot(summary(multcomp::glht(b1, linfct = cmat)))
+
+
+## Is fecundity different? ##
+
+summary(b2<-glm(fecundity ~ Genotype, d_0, family = gaussian()))
+
+summary(multcomp::glht(b2, linfct = cmat))
+plot(summary(multcomp::glht(b2, linfct = cmat)))
+
+
+## Is age at first reproduction different? ##
+
+summary(b3<-glm(age_clutch_1 ~ Genotype, d_0, family = gaussian()))
+
+summary(multcomp::glht(b3, linfct = cmat))
+plot(summary(multcomp::glht(b3, linfct = cmat)))
+
+
+## Is growth different? ##
+
+summary(b4<-glm(growth ~ Genotype, d_0, family = gaussian()))
+
+summary(multcomp::glht(b4, linfct = cmat))
+plot(summary(multcomp::glht(b4, linfct = cmat)))
+
+
+
+###########################
+##### Spore Level 150 #####
+###########################
+
+d_150<-subset(animal_mean, Spore_level == 150)
+
+
+## Are feeding rates different? ##
+summary(m1<-glm(sc_fr ~ Genotype, d_150, family = gaussian()))
+
+
+with(d_150, levels(Genotype))
+
+summary(multcomp::glht(m1, linfct = cmat))
+plot(summary(multcomp::glht(m1, linfct = cmat)))
+
+
+## Is spore yield different? ##
+
+summary(m2<-glm(spores_ul ~ Genotype, d_150, family= gaussian()))
+
+
+summary(multcomp::glht(m2, linfct = cmat))
+plot(summary(multcomp::glht(m2, linfct = cmat)))
+
+
+## Is fecundity different? ##
+
+summary(m3<-glm(fecundity ~ Genotype, d_150, family = gaussian()))
+
+summary(multcomp::glht(m3, linfct = cmat))
+plot(summary(multcomp::glht(m3, linfct = cmat)))
+
+
+## Is age at first reproduction different? ##
+
+summary(m4<-glm(age_clutch_1 ~ Genotype, d_150, family = gaussian()))
+
+summary(multcomp::glht(m4, linfct = cmat))
+plot(summary(multcomp::glht(m4, linfct = cmat)))
+
+
+## Is growth different? ##
+
+summary(m5<-glm(growth ~ Genotype, d_150, family = gaussian()))
+
+summary(multcomp::glht(m5, linfct = cmat))
+plot(summary(multcomp::glht(m5, linfct = cmat)))
+
+
+###########################
+##### Spore Level 300 #####
+###########################
+
+d_300<-subset(animal_mean, Spore_level == 300)
+
+## Are feeding rates different? ##
+summary(s1<-glm(sc_fr ~ Genotype, d_300, family = gaussian()))
+
+
+with(d_300, levels(Genotype))
+
+summary(multcomp::glht(s1, linfct = cmat))
+plot(summary(multcomp::glht(s1, linfct = cmat)))
+
+
+## Is spore yield different? ##
+
+summary(s2<-glm(spores_ul ~ Genotype, d_300, family= gaussian()))
+
+
+summary(multcomp::glht(s2, linfct = cmat))
+plot(summary(multcomp::glht(s2, linfct = cmat)))
+
+
+## Is fecundity different? ##
+
+summary(s3<-glm(fecundity ~ Genotype, d_300, family = gaussian()))
+
+summary(multcomp::glht(s3, linfct = cmat))
+plot(summary(multcomp::glht(s3, linfct = cmat)))
+
+
+## Is age at first reproduction different? ##
+
+summary(s4<-glm(age_clutch_1 ~ Genotype, d_300, family = gaussian()))
+
+summary(multcomp::glht(s4, linfct = cmat))
+plot(summary(multcomp::glht(s4, linfct = cmat)))
+
+
+## Is growth different? ##
+
+summary(s5<-glm(growth ~ Genotype, d_300, family = gaussian()))
+
+summary(multcomp::glht(s5, linfct = cmat))
+plot(summary(multcomp::glht(s5, linfct = cmat)))
+
 
 ```
 
