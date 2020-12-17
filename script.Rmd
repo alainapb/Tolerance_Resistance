@@ -712,7 +712,11 @@ plot(fitSTD, col = c("darkcyan", "darkmagenta","black"), main = "STD",  xlab= "D
 legend(x = 'bottomleft', c("0", "150", "300"),  lty = 1, bty  ='n', col = c("darkcyan", "darkmagenta","black"), cex = 0.90)
 
 ```
+A45's survival is very affected at the 300 spore level
 
+Midland 252's survival is not affected by exposure level 
+
+Midland 281's survival is affected by exposure level, but very few animals actually got sick
 
 
 
