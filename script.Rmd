@@ -627,6 +627,94 @@ Feed / PO / PInf / Spore / Repo
 
 
 
+```{r survival_analyses, echo = FALSE}
+#install.packages("car", dependencies = TRUE)
+#install.packages("survival", dependencies = TRUE)
+#install.packages("flexsurv", dependencies = TRUE)
+#install.packages("KMsurv", dependencies = TRUE)
+#install.packages("e1071", dependencies = TRUE)
+#install.packages("rms", dependencies = TRUE)
+#library(dplyr) #in tidyverse
+
+sadf <- read.csv("Survival_AJV2.csv", header = T, sep = ",")
+sadf <- sadf[!(sadf$Sex == "M"),]
+summary(sadf)
+
+fecundity.data = subset(sadf, Total.Offspring!="NA")
+Length1 = subset(sadf, Length.at.Day.7..mm.!="NA")
+Length2 = subset(sadf, Length.at.Day.20..mm.!="NA")
+growth = subset(sadf, Growth!="NA")
+
+sadf  %>%
+  mutate(gen.numeric = as.numeric(sadf$Genotype)) 
+
+# link/pair time with censor information (+ means censored (i.e., death was not observed during assay) data)
+#library(survival)
+
+attach(sadf)
+
+recsurv <- survival::Surv(Time.till.death_days.post.exposure,Censured)
+recsurv
+
+# survfit fits survival curves with various methods
+# Kaplan-Meier is most common, so use that if in doubt
+
+fit.KM <- survival::survfit(recsurv ~ 1, type = "kaplan-meier", conf.type = "log-log")
+fit.FM <- survival::survfit(recsurv ~ 1, type = "fleming-harrington", conf.type = "log-log")
+fit.FM2<- survival::survfit(recsurv ~ 1, type = "fh2", conf.type = "log-log")
+
+# print restricted mean
+# # of events = the # of animals that died
+print(fit.KM, print.rmean = TRUE)
+
+# plot cummulative harzard, and other mods as
+# what's the percentage of animals that die?
+plot(fit.KM, fun = "cumhaz")
+
+# cumulative events (f(y)=1-y)
+plot(fit.KM, fun = "event")
+
+
+
+
+#### Survival Analyses ####
+
+par(mfrow = c(2,2))
+par(las = 1)
+
+# Now, examine if any of the genotypes differ and by spores
+geno1 <- with(sadf, subset(sadf, Genotype == "A-45"))
+attach(geno1)
+recA45 <- survival::Surv(Time.till.death_days.post.exposure, Censured)
+fitA45 <- with(geno1, fit <- survival::survfit(recA45 ~ as.numeric(geno1$Spore_level), type = "kaplan-meier", conf.type = "log-log"))
+plot(fitA45, col = c("darkcyan", "darkmagenta","black"), main = "A45", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150", "300"),  lty = 1, bty  ='n', col = c("darkcyan", "darkmagenta","black"), cex = 0.90)
+
+geno2 <- with(sadf, subset(sadf, Genotype == "MID-252"))
+attach(geno2)
+recM252 <-survival::Surv(Time.till.death_days.post.exposure, Censured)
+fit252 <- with(geno2, fit <- survival::survfit(recM252 ~ as.numeric(geno2$Spore_level), type = "kaplan-meier", conf.type = "log-log"))
+plot(fit252,col = c("darkcyan", "darkmagenta","black"), main = "M252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150", "300"),  lty = 1, bty  ='n', col = c("darkcyan", "darkmagenta","black"), cex = 0.90)
+
+geno3 <- with(sadf, subset(sadf, Genotype == "MID-281"))
+attach(geno3)
+recM281 <- survival::Surv(Time.till.death_days.post.exposure, Censured)
+fit281 <- with(geno3, fit <- survival::survfit(recM281 ~ as.numeric(geno3$Spore_level), type = "kaplan-meier", conf.type = "log-log"))
+plot(fit281, col = c("darkcyan", "darkmagenta","black"), main = "M281", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150", "300"),  lty = 1, bty  ='n', col = c("darkcyan", "darkmagenta","black"), cex = 0.90)
+
+geno4 <- with(sadf, subset(sadf, Genotype == "STD"))
+attach(geno4)
+recSTD <- survival::Surv(Time.till.death_days.post.exposure, Censured)
+fitSTD <- with(geno4, fit <- survival::survfit(recSTD ~ as.numeric(geno4$Spore_level),type = "kaplan-meier", conf.type = "log-log"))
+plot(fitSTD, col = c("darkcyan", "darkmagenta","black"), main = "STD",  xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150", "300"),  lty = 1, bty  ='n', col = c("darkcyan", "darkmagenta","black"), cex = 0.90)
+
+```
+
+
+
 
 ```{r pairwise_analyses, echo = FALSE}
 
