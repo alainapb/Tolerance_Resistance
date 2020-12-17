@@ -51,11 +51,13 @@ left_join(data, life, by=c("Genotype", "Spore_level", "Animal", "Infected_Uninfe
 names(all.data.joined)
 
 ##removing unnecessary columns
-drops <- c("Sex.y", "Length_Day_7", "Length_Day_20", "DOB")
+drops <- c("Sex.y", "Length_Day_7", "Length_Day_20", "DOB", "Total.Offspring")
 all.data.joined<-all.data.joined[ , !(names(all.data.joined) %in% drops)]
 
+colnames(all.data.joined)<-c("Genotype", "Spore_level", "Plate", "Animal", "Sex", "Technical_Replicate", "Fluorometry_Reading", "Length_mm", "Size_mm2", "Final_length_mm", "Final_Size_mm2", "Growth_mm2", "Infected_Uninfected", "Susceptible", "Infected", "Spores_ul", "Total_Fecundity", "Control_Number", "Control_Technical_Replicate", "Control_Fluor_Reading", "USE_Control_Fluor_Reading", "Plate_Control", "Time.till.death.days", "Censured", "Growth_mm", "Age_1st_clutch", "Indivdual_ID")
+
 ##Remove males from dataframe
-all.female<-subset(all.data.joined, all.data.joined$Sex.x == "F")
+all.female<-subset(all.data.joined, all.data.joined$Sex == "F")
 ```
 
 
@@ -91,7 +93,7 @@ as.numeric(po_data$Prop_inf)->po_data$Prop_inf
 #### Means of the controls  - these means for each treatment (i.e., plate_control) are then used in the calculation below ####
 summary_df <- all.female %>%
   group_by(Plate_Control) %>%
-  mutate(Control_mean = mean(USE_Control_Flour_Reading, na.rm = T)) %>%
+  mutate(Control_mean = mean(USE_Control_Fluor_Reading, na.rm = T)) %>%
   select(Plate_Control, Control_mean) %>%
   distinct() %>% as.data.frame()
 
@@ -107,7 +109,7 @@ v = 10
 ## volume, mL
 t = 7  
 ##time, hours
-k= all.female$Control_mean/all.female$Flourometry_Reading 
+k= all.female$Control_mean/all.female$Fluorometry_Reading 
 ##difference in feeding compared to control
 
 ##calculate feeding rate (Sarnelle and Wilson)
@@ -122,10 +124,14 @@ animal_mean <- all.female %>%
   #means based on groups above
   summarise(mean_size_animal = mean(Size_mm2, na.rm = TRUE),
             mean_length_animal = mean(Length_mm, na.rm=TRUE),
-            mean_fluor_animal = mean(Flourometry_Reading, na.rm = TRUE),
+            mean_fluor_animal = mean(Fluorometry_Reading, na.rm = TRUE),
             susc = mean(Susceptible, na.rm = TRUE),
             inf = mean(Infected, na.rm = TRUE),
-            spores_ul=mean(Spores_ul, na.rm = TRUE))
+            censured = mean(Censured, na.rm=TRUE),
+            spores_ul=mean(Spores_ul, na.rm = TRUE),
+            growth = mean(Growth_mm, na.rm = TRUE),
+            fecundity = mean(Total_Fecundity, na.rm=TRUE),
+            age_clutch_1 = mean(Age_1st_clutch, na.rm=TRUE))
 animal_mean
 
 ##calcualte feeding rate for each animal
@@ -139,17 +145,59 @@ animal_mean$sc_fr<-animal_mean$fr_sw/animal_mean$mean_size_animal
 
 
 
-```{r explore_individual_data, include = FALSE}
-ggplot(filter(animal_mean, inf != "NaN"), mapping=aes(y=fr_sw, x= Spore_level, color= as.factor(inf)))+
+```{r explore_individual_data, echo = FALSE}
+(ggplot(filter(animal_mean, inf != "NaN"), mapping=aes(y=fr_sw, x= Spore_level, color= as.factor(inf)))+
   geom_point()+
   geom_smooth(method="lm")+
   facet_grid(.~Genotype)+
-  theme_bw()
+  theme_bw())
 
 library(viridis)
-ggplot(filter(animal_mean, spores_ul != "NaN"), mapping=aes(y=fr_sw, x= Spore_level, color= spores_ul),alpha=0.5)+
+(ggplot(filter(animal_mean, spores_ul != "NaN"), mapping=aes(y=fr_sw, x= Spore_level, color= spores_ul),alpha=0.5)+
   geom_point()+
   scale_color_viridis(option = "C")+
+  facet_grid(.~Genotype)+
+  theme_bw())
+```
+
+
+
+
+```{r explore_life_history_data, echo=FALSE}
+
+#### Growth in length_mm ####
+ggplot(animal_mean, mapping=aes(x=as.factor(Spore_level), y=growth, 
+                                fill = as.factor(inf)))+
+  scale_fill_manual(values=c("grey", "limegreen"))+
+  geom_violin()+
+  facet_grid(.~Genotype)+
+  theme_bw()
+
+
+#### Total Fecundity ####
+ggplot(filter(animal_mean, inf != "NaN"), mapping=aes(x=as.factor(Spore_level), 
+                                                      y = fecundity, 
+                                                      fill = as.factor(inf)))+
+  scale_fill_manual(values=c("grey", "limegreen"))+
+  geom_violin()+
+  facet_grid(.~Genotype)+
+  theme_bw()
+
+
+#### Age at First Clutch ####
+ggplot(filter(animal_mean, inf != "NaN"), mapping=aes(x=as.factor(Spore_level), 
+                                                      y = age_clutch_1, 
+                                                      fill = as.factor(inf)))+
+  scale_fill_manual(values=c("grey", "limegreen"))+
+  geom_violin()+
+  facet_grid(.~Genotype)+
+  theme_bw()
+
+ggplot(filter(animal_mean, inf != "NaN"), mapping=aes(x=as.factor(Spore_level), 
+                                                      y = age_clutch_1, 
+                                                      color = as.factor(inf)))+
+  scale_color_manual(values=c("grey", "limegreen"))+
+  geom_boxplot()+
   facet_grid(.~Genotype)+
   theme_bw()
 ```
