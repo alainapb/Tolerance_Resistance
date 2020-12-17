@@ -145,6 +145,50 @@ animal_mean$sc_fr<-animal_mean$fr_sw/animal_mean$mean_size_animal
 
 
 
+
+```{r feeding_and_size, include = FALSE}
+
+#feeding rate and size (length^2)
+with(animal_mean, plot(fr_sw ~ mean_size_animal))
+with(animal_mean, cor.test(fr_sw, mean_size_animal)) #r=.22 ***
+
+with(animal_mean, plot(log(fr_sw) ~ mean_size_animal)) 
+with(animal_mean, cor.test(log(fr_sw), mean_size_animal)) #r =.15 **
+
+summary(with(animal_mean, lm(fr_sw~ mean_size_animal))) # r =  0.049, and R2 = 0.046 ***
+
+
+#feeding rate and length
+with(animal_mean, plot(fr_sw ~ mean_length_animal))
+with(animal_mean, cor.test(fr_sw, mean_length_animal)) # r = 0.21 ***
+
+with(animal_mean, plot(log(fr_sw) ~ mean_length_animal)) 
+with(animal_mean, cor.test(log(fr_sw), mean_length_animal)) #r =.15 **
+
+summary(with(animal_mean, lm(fr_sw~ mean_length_animal))) # r = 0.045, and R2 = 0.042 ***
+
+
+#feeding rate and length^3
+animal_mean$mean_length_cubed<-(animal_mean$mean_length_animal^3)
+
+with(animal_mean, plot(fr_sw ~ mean_length_cubed))
+with(animal_mean, cor.test(fr_sw, mean_length_cubed)) # r = 0.23 ***
+
+with(animal_mean, plot(log(fr_sw) ~mean_length_cubed)) 
+with(animal_mean, cor.test(log(fr_sw), mean_length_cubed)) #r =.16 ***
+
+summary(with(animal_mean, lm(fr_sw~ mean_length_cubed))) # r = 0.053, and R2 = 0.049 ***
+
+
+#### Looking at the feeding data ####
+(h <- with(animal_mean, hist(fr_sw)))
+
+
+```
+
+
+
+
 ```{r explore_individual_data, echo = FALSE}
 (ggplot(filter(animal_mean, inf != "NaN"), mapping=aes(y=fr_sw, x= Spore_level, color= as.factor(inf)))+
   geom_point()+
@@ -199,13 +243,81 @@ ggplot(filter(animal_mean, inf != "NaN"), mapping=aes(x=as.factor(Spore_level),
   scale_color_manual(values=c("grey", "limegreen"))+
   geom_boxplot()+
   facet_grid(.~Genotype)+
-  theme_bw()
+  theme_classic()+
+  theme(panel.border = element_rect(color="black", fill="NA", size=.5),
+          axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank())
+
+```
+
+
+
+```{r feeding_statistics}
+
+## Full model
+(mod1 <- with(animal_mean, aov(fr_sw ~ Genotype + Spore_level + mean_size_animal)))
+Anova(mod1, type = 3)
+summary.aov(mod1, split = list(Genotype = list("A'45" = 1, "Midland 252" = 2, "Midland 281" = 3, "Standard" = 4)))
+omega_sq(mod1) # effect size 
+
+(mod2<-with(animal_mean, aov(fr_sw ~Genotype + mean_size_animal)))
+Anova(mod2, type = 3)
+summary.aov(mod2, split = list(Genotype = list("A'45" = 1, "Midland 252" = 2, "Midland 281" = 3, "Standard" = 4)) )
+
+#check the model
+plot(mod2)
+
+#run regression on best model
+(mod <- with(animal_mean, lm(fr_sw ~Genotype + mean_size_animal)))
+summary(mod) # r = .42, R2 = .41, p < 0.0001
+plot(mod)
+
+
+#guassian model
+(mod_g <- with(animal_mean, glm(fr_sw ~Genotype + mean_size_animal, family = gaussian(link = identity))))
+summary(mod_g)
+plot(mod_g)
+
+#quasipoisson model
+(mod_p <- with(animal_mean, glm(fr_sw ~Genotype + mean_size_animal, family = quasipoisson(link = log))))              
+summary(mod_p)
+
+```
+
+
+
+```{r statistics}
+
+#####################################################################################
+####Does feeding rate and spore level at exposure determine infection prevalance?####
+#####################################################################################
+
+summary(feed_inf<-glm(cbind(inf, susc) ~ fr_sw + Spore_level + Genotype,
+                      data=animal_mean,
+                      family=binomial))
+
+plot(feed_inf)
+anova(feed_inf, test="Chi")
+
+
+####################################################################################
+####Does feeding rate and spore level at exposure determine infection intensity?####
+####################################################################################
+
+summary(feed_spore<-glm(spores_ul ~ fr_sw + mean_size_animal + Spore_level + Genotype, 
+                        data=filter(animal_mean, spores_ul > 0), 
+                        family=Gamma))
+
+plot(feed_spore)
+anova(feed_spore, test ="Chi")
+
 ```
 
 
 
 
-```{r calculate_averages, echo = FALSE}
+```{r calculate_treatment_averages, echo = FALSE}
 ##find averages and se for each Genotype * Spore_level
 exp_av<-animal_mean %>%
   group_by(Genotype, Spore_level, inf) %>%
@@ -219,8 +331,11 @@ exp_av<-animal_mean %>%
             spores = mean(spores_ul, na.rm=T), # average spores_ul
             spore_count = length(spores_ul), na.rm=T, # count of infected animals
             spore_sd = sd(spores_ul, na.rm=T), # sd of spores_ul
-            spore_se = spore_sd/sqrt(spore_count)) %>%  #se of spores_ul
-   dplyr::select(c(1,2,3,4,5,9, 10, 11,15)) 
+            spore_se = spore_sd/sqrt(spore_count), # se of spores_ul
+            repo = mean(fecundity, na.rm=T),
+            repo_sd = sd(fecundity, na.rm=T),
+            repo_se = repo_sd/sqrt(count)) %>%  
+   dplyr::select(c(1,2,3,4,5,9, 10, 11,15,16,18)) 
 
 #remove the NAs in inf
 exp_av<-filter(exp_av, inf != "NaN")
@@ -230,7 +345,7 @@ exp_av<-filter(exp_av, inf != "NaN")
 
 
 
-```{r plot_of_averages, echo = FALSE}
+```{r plot_of_feeding_averages, echo = FALSE}
 #plot using size corrected averages and se
 
 (ggplot()+
@@ -264,46 +379,9 @@ Feed<-ggplot()+
     theme(panel.border = element_rect(color="black", fill="NA", size=.5),
           axis.title.x=element_blank(),
           axis.text.x=element_blank(),
-          axis.ticks.x=element_blank())+
+          axis.ticks.x=element_blank(),
+          legend.position = "none")+
     labs(x="Exposure spore level", y="Feeding Rate")
-
-```
-
-
-
-
-```{r explore_data, include = FALSE}
-
-#feeding rate and size (length^2)
-with(animal_mean, plot(fr_sw ~ mean_size_animal))
-with(animal_mean, cor.test(fr_sw, mean_size_animal)) #r=.22 ***
-
-with(animal_mean, plot(log(fr_sw) ~ mean_size_animal)) 
-with(animal_mean, cor.test(log(fr_sw), mean_size_animal)) #r =.15 **
-
-summary(with(animal_mean, lm(fr_sw~ mean_size_animal))) # r =  0.049, and R2 = 0.046 ***
-
-
-#feeding rate and length
-with(animal_mean, plot(fr_sw ~ mean_length_animal))
-with(animal_mean, cor.test(fr_sw, mean_length_animal)) # r = 0.21 ***
-
-with(animal_mean, plot(log(fr_sw) ~ mean_length_animal)) 
-with(animal_mean, cor.test(log(fr_sw), mean_length_animal)) #r =.15 **
-
-summary(with(animal_mean, lm(fr_sw~ mean_length_animal))) # r = 0.045, and R2 = 0.042 ***
-
-
-#feeding rate and length^3
-animal_mean$mean_length_cubed<-(animal_mean$mean_length_animal^3)
-
-with(animal_mean, plot(fr_sw ~ mean_length_cubed))
-with(animal_mean, cor.test(fr_sw, mean_length_cubed)) # r = 0.23 ***
-
-with(animal_mean, plot(log(fr_sw) ~mean_length_cubed)) 
-with(animal_mean, cor.test(log(fr_sw), mean_length_cubed)) #r =.16 ***
-
-summary(with(animal_mean, lm(fr_sw~ mean_length_cubed))) # r = 0.053, and R2 = 0.049 ***
 
 ```
 
@@ -509,7 +587,10 @@ Spore<-ggplot()+
     theme_classic()+
     scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
     theme(panel.border = element_rect(color="black", fill="NA", size=.5),
-          strip.text.x = element_blank())+
+          axis.title.x=element_blank(),
+         axis.text.x=element_blank(),
+         axis.ticks.x=element_blank(),
+         strip.text.x = element_blank())+
     labs(x="Exposure spore level", y="Spore Yield (spores/ul)")
 
 ```
@@ -517,8 +598,37 @@ Spore<-ggplot()+
 
 
 
-```{r Figure_1, echo = FALSE}
-Feed / PO / PInf / Spore
+```{r spore_yield_plot, echo = FALSE}
+
+Repo<-ggplot()+
+    geom_point(exp_av, mapping=aes(x=Spore_level, y=repo, fill = as.factor(inf)),size=5, pch=22)+
+    geom_errorbar(exp_av, mapping=aes(x=Spore_level, 
+                                           ymin=repo-repo_se,
+                                           ymax=repo+repo_se),
+                  width=0.2)+
+    facet_grid(.~Genotype)+
+    theme_classic()+
+    scale_fill_manual(values=c("grey", "limegreen"))+
+    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
+    theme(panel.border = element_rect(color="black", fill="NA", size=.5),
+          strip.text.x = element_blank(),
+          legend.position = "none")+
+    labs(x="Exposure spore level", y="Average Offspring")
+
 ```
 
+
+
+
+
+```{r Figure_1, echo = FALSE}
+Feed / PO / PInf / Spore / Repo
+```
+
+
+
+
+```{r survival_analyses, echo = FALSE}
+
+```
 
