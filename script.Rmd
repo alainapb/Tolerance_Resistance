@@ -602,7 +602,7 @@ Spore<-ggplot()+
 
 
 
-```{r spore_yield_plot, echo = FALSE}
+```{r average_offspring_plot, echo = FALSE}
 
 Repo<-ggplot()+
     geom_point(exp_av, mapping=aes(x=Spore_level, y=repo, fill = as.factor(inf)),size=5, pch=22)+
@@ -617,7 +617,7 @@ Repo<-ggplot()+
     theme(panel.border = element_rect(color="black", fill="NA", size=.5),
           strip.text.x = element_blank(),
           legend.position = "none")+
-    labs(x="Exposure spore level", y="Average Offspring")
+    labs(x="Exposure spore level", y="Av. Offspring")
 
 ```
 
@@ -627,6 +627,8 @@ Repo<-ggplot()+
 
 ```{r Figure_1, echo = FALSE}
 Feed / PO / PInf / Spore / Repo
+
+ggsave("~/Documents/Publications/Tolerance_Resistance/figures/figure_1.png", width = 5, height = 8)
 ```
 
 
