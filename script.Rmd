@@ -15,7 +15,6 @@ library(bbmle)
 library(car)
 library(knitr)
 library(tidyr)
-library(sjstats) 
 library(lme4)
 
 #setwd()
@@ -408,17 +407,17 @@ summary(basic)
 all.glm<-glm(Abs ~ Time + Genotype + Spores + Prop_inf, data=po_data)                      
 summary(all.glm)
 
-mixed.lmer<-lmer(Abs ~ Time + (1|Genotype) + Spores, data=po_data)
-summary(mixed.lmer)
+#mixed.lmer<-lmer(Abs ~ Time + (1|Genotype) + Spores, data=po_data)
+#summary(mixed.lmer)
 
-plot(mixed.lmer)
-qqnorm(resid(mixed.lmer))
-qqline(resid(mixed.lmer))
+#plot(mixed.lmer)
+#qqnorm(resid(mixed.lmer))
+#qqline(resid(mixed.lmer))
 
-(mm_plot<-ggplot(po_data, aes(x=Time, y=Abs, color=Spores)) +
-    facet_wrap(~Genotype, nrow= 2) +
-    geom_point(alpha=0.5) +
-    theme_classic())
+#(mm_plot<-ggplot(po_data, aes(x=Time, y=Abs, color=Spores)) +
+#    facet_wrap(~Genotype, nrow= 2) +
+#    geom_point(alpha=0.5) +
+#    theme_classic())
 
 #### Plots for 4.5 hour time point ####
 
