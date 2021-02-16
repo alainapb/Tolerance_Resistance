@@ -29,10 +29,10 @@ library(lme4)
 ```{r load_data, include=FALSE}
 
 ##Feeding Rate data
-data<-read.csv("AJV2_6Nov2019_JLH.csv")
+data<-read.csv("data/AJV2_6Nov2019_JLH.csv")
 
 #Life table data
-life<-read.csv("LifeTable_AJV2_3Dec2019.csv")
+life<-read.csv("data/LifeTable_AJV2_3Dec2019.csv")
 
 #check data
 head(data)
@@ -64,7 +64,7 @@ all.female<-subset(all.data.joined, all.data.joined$Sex == "F")
 
 ```{r load_PO_data, echo =FALSE}
 ##adding AJ2 active phenoloxidase data
-all_po_data<-read.csv("AJ2_PO_for_R.csv", header=TRUE)
+all_po_data<-read.csv("data/AJ2_PO_for_R.csv", header=TRUE)
 
 ##cleaning PO data 
 
@@ -185,6 +185,44 @@ summary(with(animal_mean, lm(fr_sw~ mean_length_cubed))) # r = 0.053, and R2 = 0
 (h <- with(animal_mean, hist(fr_sw)))
 
 
+####################################################################
+##### 2/16/21 Feeding rate and size (mm2) seperated by Genotype ####
+####################################################################
+
+#Standard
+with(filter(animal_mean, Genotype == "Standard"), plot(fr_sw ~ mean_size_animal))
+with(filter(animal_mean, Genotype == "Standard"), cor.test(fr_sw, mean_size_animal)) #r=.16 NS
+
+
+summary(with(filter(animal_mean, Genotype == "Standard"), lm(fr_sw~ mean_size_animal))) 
+# r =  0.026, and R2 = 0.009 NS
+
+
+#Midland 281
+with(filter(animal_mean, Genotype == "Midland 281"), plot(fr_sw ~ mean_size_animal))
+with(filter(animal_mean, Genotype == "Midland 281"), cor.test(fr_sw, mean_size_animal)) #r=.26 **0.02
+
+
+summary(with(filter(animal_mean, Genotype == "Midland 281"), lm(fr_sw~ mean_size_animal))) 
+# r =  0.069, and R2 = 0.058 **0.02
+
+
+#Midland 252
+with(filter(animal_mean, Genotype == "Midland 252"), plot(fr_sw ~ mean_size_animal))
+with(filter(animal_mean, Genotype == "Midland 252"), cor.test(fr_sw, mean_size_animal)) #r=.37 ***
+
+
+summary(with(filter(animal_mean, Genotype == "Midland 252"), lm(fr_sw~ mean_size_animal))) 
+# r =  0.14, and R2 = 0.12 ***
+
+
+#A'45
+with(filter(animal_mean, Genotype == "A'45"), plot(fr_sw ~ mean_size_animal))
+with(filter(animal_mean, Genotype == "A'45"), cor.test(fr_sw, mean_size_animal)) #r=.18 
+
+
+summary(with(filter(animal_mean, Genotype == "A'45"), lm(fr_sw~ mean_size_animal))) 
+# r =  0.03, and R2 = 0.02
 ```
 
 
@@ -595,7 +633,7 @@ Spore<-ggplot()+
          axis.text.x=element_blank(),
          axis.ticks.x=element_blank(),
          strip.text.x = element_blank())+
-    labs(x="Exposure spore level", y="Spore Yield (spores/ul)")
+    labs(x="Exposure spore level", y="Spore Yield")
 
 ```
 
