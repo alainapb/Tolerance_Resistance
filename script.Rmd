@@ -686,10 +686,10 @@ sadf <- read.csv("data/Survival_AJV2.csv", header = T, sep = ",")
 sadf <- sadf[!(sadf$Sex == "M"),]
 summary(sadf)
 
-fecundity.data = subset(sadf, Total.Offspring!="NA")
-Length1 = subset(sadf, Length.at.Day.7..mm.!="NA")
-Length2 = subset(sadf, Length.at.Day.20..mm.!="NA")
-growth = subset(sadf, Growth!="NA")
+#fecundity.data = subset(sadf, Total.Offspring!="NA")
+#Length1 = subset(sadf, Length.at.Day.7..mm.!="NA")
+#Length2 = subset(sadf, Length.at.Day.20..mm.!="NA")
+#growth = subset(sadf, Growth!="NA")
 
 sadf  %>%
   mutate(gen.numeric = as.numeric(sadf$Genotype)) 
@@ -698,6 +698,10 @@ sadf  %>%
 #library(survival)
 
 attach(sadf)
+
+#join spore level and infection status ( 0 =uninfected, 1 = infected)
+sadf$grouped <- with(sadf, interaction(Spore_level, Infected))
+
 
 recsurv <- survival::Surv(Time.till.death_days.post.exposure,Censured)
 recsurv
@@ -732,30 +736,30 @@ par(las = 1)
 geno1 <- with(sadf, subset(sadf, Genotype == "A-45"))
 attach(geno1)
 recA45 <- survival::Surv(Time.till.death_days.post.exposure, Censured)
-fitA45 <- with(geno1, fit <- survival::survfit(recA45 ~ as.numeric(geno1$Spore_level), type = "kaplan-meier", conf.type = "log-log"))
-plot(fitA45, col = c("darkcyan", "darkmagenta","black"), main = "A45", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
-legend(x = 'bottomleft', c("0", "150", "300"),  lty = 1, bty  ='n', col = c("darkcyan", "darkmagenta","black"), cex = 0.90)
+fitA45 <- with(geno1, fit <- survival::survfit(recA45 ~ geno1$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fitA45, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "A45", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
 geno2 <- with(sadf, subset(sadf, Genotype == "MID-252"))
 attach(geno2)
 recM252 <-survival::Surv(Time.till.death_days.post.exposure, Censured)
-fit252 <- with(geno2, fit <- survival::survfit(recM252 ~ as.numeric(geno2$Spore_level), type = "kaplan-meier", conf.type = "log-log"))
-plot(fit252,col = c("darkcyan", "darkmagenta","black"), main = "M252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
-legend(x = 'bottomleft', c("0", "150", "300"),  lty = 1, bty  ='n', col = c("darkcyan", "darkmagenta","black"), cex = 0.90)
+fit252 <- with(geno2, fit <- survival::survfit(recM252 ~ geno2$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fit252,col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
 geno3 <- with(sadf, subset(sadf, Genotype == "MID-281"))
 attach(geno3)
 recM281 <- survival::Surv(Time.till.death_days.post.exposure, Censured)
-fit281 <- with(geno3, fit <- survival::survfit(recM281 ~ as.numeric(geno3$Spore_level), type = "kaplan-meier", conf.type = "log-log"))
-plot(fit281, col = c("darkcyan", "darkmagenta","black"), main = "M281", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
-legend(x = 'bottomleft', c("0", "150", "300"),  lty = 1, bty  ='n', col = c("darkcyan", "darkmagenta","black"), cex = 0.90)
+fit281 <- with(geno3, fit <- survival::survfit(recM281 ~ geno3$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fit281, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M281", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
 geno4 <- with(sadf, subset(sadf, Genotype == "STD"))
 attach(geno4)
 recSTD <- survival::Surv(Time.till.death_days.post.exposure, Censured)
-fitSTD <- with(geno4, fit <- survival::survfit(recSTD ~ as.numeric(geno4$Spore_level),type = "kaplan-meier", conf.type = "log-log"))
-plot(fitSTD, col = c("darkcyan", "darkmagenta","black"), main = "STD",  xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
-legend(x = 'bottomleft', c("0", "150", "300"),  lty = 1, bty  ='n', col = c("darkcyan", "darkmagenta","black"), cex = 0.90)
+fitSTD <- with(geno4, fit <- survival::survfit(recSTD ~ geno4$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fitSTD, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "STD",  xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
 ```
 A45's survival is very affected at the 300 spore level
