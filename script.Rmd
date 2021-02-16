@@ -224,6 +224,8 @@ with(filter(animal_mean, Genotype == "A'45"), cor.test(fr_sw, mean_size_animal))
 summary(with(filter(animal_mean, Genotype == "A'45"), lm(fr_sw~ mean_size_animal))) 
 # r =  0.03, and R2 = 0.02
 ```
+ 
+ Midland 252 has the strongest correlation between body size and feeding rate
 
 
 
@@ -666,7 +668,7 @@ Repo<-ggplot()+
 ```{r Figure_1, echo = FALSE}
 Feed / PO / PInf / Spore / Repo
 
-ggsave("~/Documents/Publications/Tolerance_Resistance/figures/figure_1.png", width = 5, height = 8)
+ggsave("Figures/figure_1.png", width = 5, height = 8)
 ```
 
 
@@ -680,7 +682,7 @@ ggsave("~/Documents/Publications/Tolerance_Resistance/figures/figure_1.png", wid
 #install.packages("rms", dependencies = TRUE)
 #library(dplyr) #in tidyverse
 
-sadf <- read.csv("Survival_AJV2.csv", header = T, sep = ",")
+sadf <- read.csv("data/Survival_AJV2.csv", header = T, sep = ",")
 sadf <- sadf[!(sadf$Sex == "M"),]
 summary(sadf)
 
