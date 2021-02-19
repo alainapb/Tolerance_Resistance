@@ -15,7 +15,7 @@ library(bbmle)
 library(car)
 library(knitr)
 library(tidyr)
-library(lme4)
+#library(lme4)
 
 #setwd()
 
@@ -123,7 +123,7 @@ animal_mean <- all.female %>%
   #means based on groups above
   summarise(mean_size_animal = mean(Size_mm2, na.rm = TRUE),
             mean_length_animal = mean(Length_mm, na.rm=TRUE),
-            mean_fluor_animal = mean(Fluorometry_Reading, na.rm = TRUE),
+            fr_sw = mean(fr_sw, na.rm = TRUE),
             susc = mean(Susceptible, na.rm = TRUE),
             inf = mean(Infected, na.rm = TRUE),
             censured = mean(Censured, na.rm=TRUE),
@@ -133,12 +133,11 @@ animal_mean <- all.female %>%
             age_clutch_1 = mean(Age_1st_clutch, na.rm=TRUE))
 animal_mean
 
-##calcualte feeding rate for each animal
-animal_mean$fr_sw<-log(animal_mean$Control_mean/animal_mean$mean_fluor_animal) * (v/t)
+##length correcting feeding rate for each animal
+animal_mean$lc_fr<-animal_mean$fr_sw/animal_mean$mean_length_animal
 
 ##size correcting feeding rate for each animal
 animal_mean$sc_fr<-animal_mean$fr_sw/animal_mean$mean_size_animal
-
 
 ```
 
