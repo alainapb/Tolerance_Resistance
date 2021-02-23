@@ -296,12 +296,20 @@ ggplot(filter(animal_mean, inf != "NaN"), mapping=aes(x=as.factor(Spore_level),
 ```{r feeding_statistics}
 
 ## Full model
-(mod1 <- with(animal_mean, aov(fr_sw ~ Genotype + Spore_level + mean_size_animal)))
+(mod1 <- with(animal_mean, aov(fr_sw ~ Spore_level + Genotype*mean_size_animal)))
 Anova(mod1, type = 3)
 summary.aov(mod1, split = list(Genotype = list("A'45" = 1, "Midland 252" = 2, "Midland 281" = 3, "Standard" = 4)))
-omega_sq(mod1) # effect size 
+#omega_sq(mod1) # effect size 
 
-(mod2<-with(animal_mean, aov(fr_sw ~Genotype + mean_size_animal)))
+#check the model
+plot(mod1)
+
+##run regression with the full model
+(mod0<-with(animal_mean, lm(fr_sw ~ Spore_level + Genotype*mean_size_animal)))
+summary(mod0)
+
+
+(mod2<-with(animal_mean, aov(fr_sw ~Genotype*mean_size_animal)))
 Anova(mod2, type = 3)
 summary.aov(mod2, split = list(Genotype = list("A'45" = 1, "Midland 252" = 2, "Midland 281" = 3, "Standard" = 4)) )
 
@@ -309,18 +317,18 @@ summary.aov(mod2, split = list(Genotype = list("A'45" = 1, "Midland 252" = 2, "M
 plot(mod2)
 
 #run regression on best model
-(mod <- with(animal_mean, lm(fr_sw ~Genotype + mean_size_animal)))
+(mod <- with(animal_mean, lm(fr_sw ~Genotype*mean_size_animal)))
 summary(mod) # r = .42, R2 = .41, p < 0.0001
 plot(mod)
 
 
 #guassian model
-(mod_g <- with(animal_mean, glm(fr_sw ~Genotype + mean_size_animal, family = gaussian(link = identity))))
+(mod_g <- with(animal_mean, glm(fr_sw ~Genotype*mean_size_animal, family = gaussian(link = identity))))
 summary(mod_g)
 plot(mod_g)
 
 #quasipoisson model
-(mod_p <- with(animal_mean, glm(fr_sw ~Genotype + mean_size_animal, family = quasipoisson(link = log))))              
+(mod_p <- with(animal_mean, glm(fr_sw ~Genotype*mean_size_animal, family = quasipoisson(link = log))))              
 summary(mod_p)
 
 ```
@@ -1133,3 +1141,15 @@ A45: first clutch and growth are significantly different between 0v.150 and 0v.3
 Midland 252: feeding rate significantly different between 0v.150; fecundity between 0v.150 and 0v.300; first clutch between all of them!; growth between 0v.150 and 0v.300
 
 Midland 281:feeding rate significantly different between 0v.150 and 150v.300; fecundity between 0v.150; first clutch between 0v150 and 0v300; growth between 0v150 and 0v300
+
+
+
+
+
+
+  Alaina writes a summary:
+  
+Standard (Tolerant Genotype) exhibits anorexia at both 150 and 300 spores/ml. All exposed animals were infected and exhibit lower active PO levels than their unexposed clones. Also, the infected individuals produce equal or more offsping in their lifetime than their unexposed clones. This suggests that Standard may allocate energy stores to reproduction over fighting infection. 
+
+A'45 does not appear to change it's feeding rate with exposure to M. bicuspidata, but it seems like individuals who ate more during exposure ended up infected. 
+  
