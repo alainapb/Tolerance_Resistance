@@ -192,6 +192,10 @@ summary(with(animal_mean, lm(fr_sw~ mean_length_cubed))) # r = 0.053, and R2 = 0
 with(filter(animal_mean, Genotype == "Standard"), plot(fr_sw ~ mean_size_animal))
 with(filter(animal_mean, Genotype == "Standard"), cor.test(fr_sw, mean_size_animal)) #r=.16 NS
 
+#control only Standards do not have a correlation either
+with(filter(animal_mean, Genotype == "Standard", Spore_level == 0), plot(fr_sw ~ mean_size_animal))
+with(filter(animal_mean, Genotype == "Standard", Spore_level == 0), cor.test(fr_sw, mean_size_animal))
+
 
 summary(with(filter(animal_mean, Genotype == "Standard"), lm(fr_sw~ mean_size_animal))) 
 # r =  0.026, and R2 = 0.009 NS
@@ -200,6 +204,10 @@ summary(with(filter(animal_mean, Genotype == "Standard"), lm(fr_sw~ mean_size_an
 #Midland 281
 with(filter(animal_mean, Genotype == "Midland 281"), plot(fr_sw ~ mean_size_animal))
 with(filter(animal_mean, Genotype == "Midland 281"), cor.test(fr_sw, mean_size_animal)) #r=.26 **0.02
+
+#control only Midland 281 DO have a correlation either
+with(filter(animal_mean, Genotype == "Midland 281", Spore_level == 0), plot(fr_sw ~ mean_size_animal))
+with(filter(animal_mean, Genotype == "Midland 281", Spore_level == 0), cor.test(fr_sw, mean_size_animal))
 
 
 summary(with(filter(animal_mean, Genotype == "Midland 281"), lm(fr_sw~ mean_size_animal))) 
@@ -210,6 +218,9 @@ summary(with(filter(animal_mean, Genotype == "Midland 281"), lm(fr_sw~ mean_size
 with(filter(animal_mean, Genotype == "Midland 252"), plot(fr_sw ~ mean_size_animal))
 with(filter(animal_mean, Genotype == "Midland 252"), cor.test(fr_sw, mean_size_animal)) #r=.37 ***
 
+#control only Midland 281 DO have a correlation either
+with(filter(animal_mean, Genotype == "Midland 252", Spore_level == 0), plot(fr_sw ~ mean_size_animal))
+with(filter(animal_mean, Genotype == "Midland 252", Spore_level == 0), cor.test(fr_sw, mean_size_animal))
 
 summary(with(filter(animal_mean, Genotype == "Midland 252"), lm(fr_sw~ mean_size_animal))) 
 # r =  0.14, and R2 = 0.12 ***
@@ -220,11 +231,17 @@ with(filter(animal_mean, Genotype == "A'45"), plot(fr_sw ~ mean_size_animal))
 with(filter(animal_mean, Genotype == "A'45"), cor.test(fr_sw, mean_size_animal)) #r=.18 
 
 
+#control only Midland 281 do NOT have a correlation either
+with(filter(animal_mean, Genotype == "A'45", Spore_level == 0), plot(fr_sw ~ mean_size_animal))
+with(filter(animal_mean, Genotype == "A'45", Spore_level == 0), cor.test(fr_sw, mean_size_animal))
+
 summary(with(filter(animal_mean, Genotype == "A'45"), lm(fr_sw~ mean_size_animal))) 
 # r =  0.03, and R2 = 0.02
 ```
  
  Midland 252 has the strongest correlation between body size and feeding rate
+ 
+ When only using controls, Midland 252 and 281 both have significant correlations
 
 
 
@@ -524,7 +541,7 @@ summary(fit2)
 #No interaction between spore level & proportion of infected individuals
 anova(fit1,fit2) 
 
-####The best model?? ####
+####The best model ####
 
 summary(lm(delta_po ~ Genotype + Spores + Prop_inf -1, data=subset(initial,Genotype!="Control")))
 # Standard is significantly different than the other genotypes
@@ -704,11 +721,13 @@ sadf  %>%
 # link/pair time with censor information (+ means censored (i.e., death was not observed during assay) data)
 #library(survival)
 
-attach(sadf)
 
 #join spore level and infection status ( 0 =uninfected, 1 = infected)
 sadf$grouped <- with(sadf, interaction(Spore_level, Infected))
 
+##filter out animals that died before day 7
+sadf2<-filter(sadf, Time.till.death_days.post.exposure > 0)
+attach(sadf2)
 
 recsurv <- survival::Surv(Time.till.death_days.post.exposure,Censured)
 recsurv
@@ -740,28 +759,28 @@ par(mfrow = c(2,2))
 par(las = 1)
 
 # Now, examine if any of the genotypes differ and by spores
-geno1 <- with(sadf, subset(sadf, Genotype == "A-45"))
+geno1 <- with(sadf2, subset(sadf2, Genotype == "A-45"))
 attach(geno1)
 recA45 <- survival::Surv(Time.till.death_days.post.exposure, Censured)
 fitA45 <- with(geno1, fit <- survival::survfit(recA45 ~ geno1$grouped, type = "kaplan-meier", conf.type = "log-log"))
 plot(fitA45, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "A45", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
 legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
-geno2 <- with(sadf, subset(sadf, Genotype == "MID-252"))
+geno2 <- with(sadf2, subset(sadf2, Genotype == "MID-252"))
 attach(geno2)
 recM252 <-survival::Surv(Time.till.death_days.post.exposure, Censured)
 fit252 <- with(geno2, fit <- survival::survfit(recM252 ~ geno2$grouped, type = "kaplan-meier", conf.type = "log-log"))
 plot(fit252,col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
 legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
-geno3 <- with(sadf, subset(sadf, Genotype == "MID-281"))
+geno3 <- with(sadf2, subset(sadf2, Genotype == "MID-281"))
 attach(geno3)
 recM281 <- survival::Surv(Time.till.death_days.post.exposure, Censured)
 fit281 <- with(geno3, fit <- survival::survfit(recM281 ~ geno3$grouped, type = "kaplan-meier", conf.type = "log-log"))
 plot(fit281, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M281", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
 legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
-geno4 <- with(sadf, subset(sadf, Genotype == "STD"))
+geno4 <- with(sadf2, subset(sadf2, Genotype == "STD"))
 attach(geno4)
 recSTD <- survival::Surv(Time.till.death_days.post.exposure, Censured)
 fitSTD <- with(geno4, fit <- survival::survfit(recSTD ~ geno4$grouped, type = "kaplan-meier", conf.type = "log-log"))
@@ -1152,4 +1171,8 @@ Midland 281:feeding rate significantly different between 0v.150 and 150v.300; fe
 Standard (Tolerant Genotype) exhibits anorexia at both 150 and 300 spores/ml. All exposed animals were infected and exhibit lower active PO levels than their unexposed clones. Also, the infected individuals produce equal or more offsping in their lifetime than their unexposed clones. This suggests that Standard may allocate energy stores to reproduction over fighting infection. 
 
 A'45 does not appear to change it's feeding rate with exposure to M. bicuspidata, but it seems like individuals who ate more during exposure ended up infected. 
+
+Midland 252 doesn't appear to change it's feeding rate with exposure to M. bicuspidata
+
+Midland 281 (Resistant Genotype)
   
