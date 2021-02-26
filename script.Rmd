@@ -20,7 +20,7 @@ library(tidyr)
 #setwd()
 
 ####Color Theme####
-
+# reminder to JLH  and Alaina: make sure this is color-blind friendly.
 ```
 
 
