@@ -142,6 +142,20 @@ avg_po1
 # initial$delta_po <- delta_po
 # 
 
+
+### Alaina was curious 2-26-21 ###
+#initial %>%
+#  filter(Genotype != "Control", Spores != "0") %>%
+#  ggplot()+
+#  geom_point(aes(x=Prop_inf, y = delta_po, color = as.factor(Spores)))+
+#  facet_grid(Genotype ~.)+
+#  theme_bw()
+
+#initial %>%
+#  filter(Genotype != "Control") %>%
+#  ggplot()+
+#  geom_boxplot(aes(x=as.factor(Spores), y = delta_po, fill = as.factor(Spores)))+
+#  facet_grid(.~ Genotype)
 ```
 
 
@@ -397,6 +411,8 @@ filtered_df %>%
 
 #ggplot(animal_mean, aes(spores_ul, mean_final_surface_area)) + geom_point() + geom_smooth(method = "lm")
 ```
+
+
 
 ```{r feeding_statistics}
 
