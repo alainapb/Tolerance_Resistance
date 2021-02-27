@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
 library(tidyverse)
 
+
 #setwd()
 
 ####Color Theme####
@@ -110,7 +111,7 @@ avg_po1 <- all_po_data %>%
   arrange(Genotype, Spores, Time, Replicate, Sample) %>% 
   group_by(Sample) %>%
   mutate(mean_po = mean(Abs, na.rm = T)) %>% 
-  select(Genotype, Spores, Sample, mean_po) %>% 
+  dplyr::select(Genotype, Spores, Sample, mean_po) %>% 
   distinct() %>% as.data.frame()
 avg_po1 
 
@@ -154,7 +155,7 @@ avg_po1
 summary_df <- all.female %>%
   group_by(Plate_Control) %>%
   mutate(Control_mean = mean(USE_Control_Flour_Reading, na.rm = T)) %>%
-  select(Plate_Control, Control_mean) %>%
+  dplyr::select(Plate_Control, Control_mean) %>%
   distinct() %>% as.data.frame()
 
 
@@ -813,11 +814,11 @@ sadf  %>%
 # link/pair time with censor information (+ means censored (i.e., death was not observed during assay) data)
 #library(survival)
 
-attach(sadf)
 
 #join spore level and infection status ( 0 = uninfected, 1 = infected)
 sadf$grouped <- with(sadf, interaction(Spore_level, Infected))
 
+attach(sadf)
 
 recsurv <- survival::Surv(Time.till.death_days.post.exposure, Censured)
 recsurv
@@ -849,21 +850,21 @@ par(mfrow = c(2,2))
 par(las = 1)
 
 # Now, examine if any of the genotypes differ and by spores
-geno1 <- with(sadf, subset(sadf, Genotype == "A-45"))
+geno1 <- with(sadf, subset(sadf, Genotype == "A45"))
 attach(geno1)
 recA45 <- survival::Surv(Time.till.death_days.post.exposure, Censured)
 fitA45 <- with(geno1, fit <- survival::survfit(recA45 ~ geno1$grouped, type = "kaplan-meier", conf.type = "log-log"))
 plot(fitA45, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "A45", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
 legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
-geno2 <- with(sadf, subset(sadf, Genotype == "MID-252"))
+geno2 <- with(sadf, subset(sadf, Genotype == "Midland 252"))
 attach(geno2)
 recM252 <-survival::Surv(Time.till.death_days.post.exposure, Censured)
 fit252 <- with(geno2, fit <- survival::survfit(recM252 ~ geno2$grouped, type = "kaplan-meier", conf.type = "log-log"))
 plot(fit252,col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
 legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
-geno3 <- with(sadf, subset(sadf, Genotype == "MID-281"))
+geno3 <- with(sadf, subset(sadf, Genotype == "Midland 281"))
 attach(geno3)
 recM281 <- survival::Surv(Time.till.death_days.post.exposure, Censured)
 fit281 <- with(geno3, fit <- survival::survfit(recM281 ~ geno3$grouped, type = "kaplan-meier", conf.type = "log-log"))
@@ -886,7 +887,7 @@ Midland 281's survival is affected by exposure level, but very few animals actua
 
 
 
-```{r pairwise_analyses_within_spore_level, echo = FALSE}
+```{r pairwise_analyses_within_spore_level, include = FALSE}
 
 # Genotypes:
 # A'45 == 
@@ -917,7 +918,7 @@ d_0<-subset(animal_mean, Spore_level == 0)
 
 
 ## Are feeding rates different? ##
-summary(b1<-glm(sc_fr ~ Genotype, d_0, family = gaussian()))
+summary(b1<-glm(mean_feeding_rate ~ Genotype, d_0, family = gaussian()))
 
 
 with(d_0, levels(Genotype))
@@ -944,7 +945,7 @@ plot(summary(multcomp::glht(b3, linfct = cmat)))
 
 ## Is growth different? ##
 
-summary(b4<-glm(growth ~ Genotype, d_0, family = gaussian()))
+summary(b4<-glm(mean_growth_length ~ Genotype, d_0, family = gaussian()))
 
 summary(multcomp::glht(b4, linfct = cmat))
 plot(summary(multcomp::glht(b4, linfct = cmat)))
@@ -959,7 +960,7 @@ d_150<-subset(animal_mean, Spore_level == 150)
 
 
 ## Are feeding rates different? ##
-summary(m1<-glm(sc_fr ~ Genotype, d_150, family = gaussian()))
+summary(m1<-glm(mean_feeding_rate ~ Genotype, d_150, family = gaussian()))
 
 
 with(d_150, levels(Genotype))
@@ -995,7 +996,7 @@ plot(summary(multcomp::glht(m4, linfct = cmat)))
 
 ## Is growth different? ##
 
-summary(m5<-glm(growth ~ Genotype, d_150, family = gaussian()))
+summary(m5<-glm(mean_growth_length ~ Genotype, d_150, family = gaussian()))
 
 summary(multcomp::glht(m5, linfct = cmat))
 plot(summary(multcomp::glht(m5, linfct = cmat)))
@@ -1008,7 +1009,7 @@ plot(summary(multcomp::glht(m5, linfct = cmat)))
 d_300<-subset(animal_mean, Spore_level == 300)
 
 ## Are feeding rates different? ##
-summary(s1<-glm(sc_fr ~ Genotype, d_300, family = gaussian()))
+summary(s1<-glm(mean_feeding_rate ~ Genotype, d_300, family = gaussian()))
 
 
 with(d_300, levels(Genotype))
@@ -1044,7 +1045,7 @@ plot(summary(multcomp::glht(s4, linfct = cmat)))
 
 ## Is growth different? ##
 
-summary(s5<-glm(growth ~ Genotype, d_300, family = gaussian()))
+summary(s5<-glm(mean_growth_length ~ Genotype, d_300, family = gaussian()))
 
 summary(multcomp::glht(s5, linfct = cmat))
 plot(summary(multcomp::glht(s5, linfct = cmat)))
@@ -1086,7 +1087,7 @@ b_0<-subset(animal_mean, Genotype == "Standard")
 
 
 ## Are feeding rates different? ##
-summary(b1<-glm(sc_fr ~ as.factor(Spore_level), b_0, family = gaussian()))
+summary(b1<-glm(mean_feeding_rate ~ as.factor(Spore_level), b_0, family = gaussian()))
 
 
 with(b_0, levels(as.factor(Spore_level)))
@@ -1113,7 +1114,7 @@ plot(summary(multcomp::glht(b3, linfct = dmat)))
 
 ## Is growth different? ##
 
-summary(b4<-glm(growth ~ as.factor(Spore_level), b_0, family = gaussian()))
+summary(b4<-glm(mean_growth_length ~ as.factor(Spore_level), b_0, family = gaussian()))
 
 summary(multcomp::glht(b4, linfct = dmat))
 plot(summary(multcomp::glht(b4, linfct = dmat)))
@@ -1123,11 +1124,11 @@ plot(summary(multcomp::glht(b4, linfct = dmat)))
 #######    A45    #######
 #########################
 
-b_a45<-subset(animal_mean, Genotype == "A'45")
+b_a45<-subset(animal_mean, Genotype == "A45")
 
 
 ## Are feeding rates different? ##
-summary(a1<-glm(sc_fr ~ as.factor(Spore_level), b_a45, family = gaussian()))
+summary(a1<-glm(mean_feeding_rate ~ as.factor(Spore_level), b_a45, family = gaussian()))
 
 
 with(b_a45, levels(as.factor(Spore_level)))
@@ -1154,7 +1155,7 @@ plot(summary(multcomp::glht(a3, linfct = dmat)))
 
 ## Is growth different? ##
 
-summary(a4<-glm(growth ~ as.factor(Spore_level), b_a45, family = gaussian()))
+summary(a4<-glm(mean_growth_length ~ as.factor(Spore_level), b_a45, family = gaussian()))
 
 summary(multcomp::glht(a4, linfct = dmat))
 plot(summary(multcomp::glht(a4, linfct = dmat)))
@@ -1168,7 +1169,7 @@ b_m252<-subset(animal_mean, Genotype == "Midland 252")
 
 
 ## Are feeding rates different? ##
-summary(m1<-glm(sc_fr ~  as.factor(Spore_level), b_m252, family = gaussian()))
+summary(m1<-glm(mean_feeding_rate ~  as.factor(Spore_level), b_m252, family = gaussian()))
 
 
 with(b_m252, levels(as.factor(Spore_level)))
@@ -1195,7 +1196,7 @@ plot(summary(multcomp::glht(m3, linfct = dmat)))
 
 ## Is growth different? ##
 
-summary(m4<-glm(growth ~ as.factor(Spore_level), b_m252, family = gaussian()))
+summary(m4<-glm(mean_growth_length ~ as.factor(Spore_level), b_m252, family = gaussian()))
 
 summary(multcomp::glht(m4, linfct = dmat))
 plot(summary(multcomp::glht(m4, linfct = dmat)))
@@ -1210,7 +1211,7 @@ b_m281<-subset(animal_mean, Genotype == "Midland 281")
 
 
 ## Are feeding rates different? ##
-summary(mid1<-glm(sc_fr ~ as.factor(Spore_level), b_m281, family = gaussian()))
+summary(mid1<-glm(mean_feeding_rate ~ as.factor(Spore_level), b_m281, family = gaussian()))
 
 
 with(b_m281, levels(as.factor(Spore_level)))
@@ -1237,7 +1238,7 @@ plot(summary(multcomp::glht(mid3, linfct = dmat)))
 
 ## Is growth different? ##
 
-summary(mid4<-glm(growth ~ as.factor(Spore_level), b_m281, family = gaussian()))
+summary(mid4<-glm(mean_growth_length ~ as.factor(Spore_level), b_m281, family = gaussian()))
 
 summary(multcomp::glht(mid4, linfct = dmat))
 plot(summary(multcomp::glht(mid4, linfct = dmat)))
