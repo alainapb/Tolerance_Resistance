@@ -212,12 +212,6 @@ animal_mean <- all.female %>%
             age_clutch_1 = mean(Age_1st_clutch, na.rm = TRUE))
 animal_mean
 
-a1 <- as.data.frame(animal_mean, na.rm = T)
-head(a1)
-a1.data <- write.csv(a1, "MeansMLE.csv")  ## export file to excel spreadsheet
-
-
-
 ```
 
 
