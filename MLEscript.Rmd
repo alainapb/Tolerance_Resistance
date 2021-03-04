@@ -1,9 +1,12 @@
 ---
 title: "MLEscript"
-author: "APB"
+author: ""
 date: 25 Feb 2021"
 output: html_document
 ---
+
+
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -17,10 +20,10 @@ library(magrittr)
 library(bbmle)
 library(pomp)
 require(pomp)
+library(coda)
 library(doParallel)         # for parallel computing
 library(pbmcapply)          # for parallel computing
 library(foreach)            # faster than a for loop
-
 
 
 #setwd()
@@ -28,6 +31,10 @@ library(foreach)            # faster than a for loop
 ####Color Theme####
 
 ```
+
+#### Used for: Max likelihood analysis to fit mechanistic transmission model to data
+
+First part of code combines data from various spreadsheets (and we will strive to make a single master spreadsheet for all future experiments!)
 
 
 
@@ -165,38 +172,33 @@ map = setNames(summary_df$Control_mean,summary_df$Plate_Control)
 all.female$Control_mean <- map[as.character(all.female$Plate)]
 all.female$Control_mean
 
-v <- 10 
-## volume, mL
-t <- 7  
-##time, hours
+v <- 10 ## volume, mL
+t <- 7  ## time, hours
 
-k <- all.female$Control_mean/all.female$Flourometry_Reading
-k
-##difference in feeding compared to control
+k <- all.female$Control_mean/all.female$Flourometry_Reading  ##difference in feeding compared to control
 
 ##calculate feeding rate (Sarnelle and Wilson)
 all.female$fr_sw <- log(k) * (v/t)
 
 #calculate mean fluor reading per animal (keep rate > 0)
-animal_mean <- all.female %>%
+data <- all.female %>%
   #keep fr_sw values > 0
   filter(fr_sw > 0) %>%
   #group based on these variables
   group_by(Genotype, Spore_level, Animal, Plate, Control_mean) %>%
+  dplyr::mutate(ID = Genotype) %>% 
   #means based on groups above
-  summarise(mean_surface_area = mean(Size_mm2, na.rm = TRUE),
-            mean_init_length = mean(Length_mm, na.rm = TRUE),
-            mean_final_length = mean(Final_length_mm, na.rm = TRUE),
-            mean_final_surface_area = mean(Final_Size_mm2, na.rm = TRUE),
-            mean_growth_length = mean(Total_Growth, na.rm = TRUE),
-            mean_feeding_rate = mean(fr_sw, na.rm = TRUE),
-            susc = mean(Susceptible, na.rm = TRUE),
-            inf = mean(Infected, na.rm = TRUE),
-            censured = mean(Censured, na.rm = TRUE),
-            spores_ul = mean(Spores_ul, na.rm = TRUE),
-            fecundity = mean(Total_Fecundity, na.rm = TRUE),
-            age_clutch_1 = mean(Age_1st_clutch, na.rm = TRUE))
-animal_mean
+  mutate(mm = mean(Length_mm, na.rm = TRUE)) %>% 
+  mutate(A1 = mean(Flourometry_Reading, na.rm = TRUE)) %>% 
+  mutate(A0 = mean(Control_mean, na.rm = TRUE)) %>% 
+  mutate(Susceptible = mean(Susceptible, na.rm = TRUE)) %>% 
+  mutate(Infected = mean(Infected, na.rm = TRUE)) %>% 
+  mutate(P0 = mean(Spores_ul, na.rm = TRUE)) %>% 
+  select(ID, Genotype, Spore_level, Animal, Plate, Control_mean, mm, A1, A0, Susceptible, Infected, P0) %>%
+  distinct() %>% as.data.frame()
+data
+
+
 
 ```
 
@@ -208,10 +210,9 @@ animal_mean
 
 ```{r begin set up for MLE, include = TRUE}
 ## 'data' is a dataframe with columns:
-## 'Age' host age at time of exposure
 ## 'P0' parasite/pathogen spore dose
 ## 'Animal' biological replicate number
-## 'ID' a numeric identifier for each day-by-age treatment (added below)
+## 'ID' a numeric identifier for genotype treatment (added below)
 ## 'A0' initial algae concentration (control values - these are plate-specific)
 ## 'mm' gives the size of the animal (convert to surface area: L^2)
 ## 'A1' final algae concentration (final algal concentration - fluorometry reading)
@@ -239,9 +240,6 @@ data
 #### infection status (at the end of the experiment), spore exposure and plate-specific control (A0) value
 #### Bolker's book has this cool trick which will help with some of this.
 
-ID <- as.numeric(data$Plate_Treatment)
-ID
-
 ## Which model to use? (currently, 1-4)
 model <- 'mod4'
 
@@ -259,17 +257,17 @@ model <- 'mod4'
 ## of each parameter.
 
 ## With the current model formulation, the
-## genotype-specific feeding parameters (f11-f14) need to be transformed
+## genotype-specific feeding parameters (f1-f1) need to be transformed
 ## in order to vary between -Inf and Inf
-sobolDesign(lower = c(u1 = log(0.0001),         ## age/time-specific per-spore susceptibility
+sobolDesign(lower = c(u1 = log(0.0001),         ## genotype-specific per-spore susceptibility
                       u2 = log(0.0001),
                       u3 = log(0.0001),
                       u4 = log(0.0001),
-                      f1 = log(0.001),          ## age/time feeding rate
+                      f1 = log(0.001),          ## genotype feeding rate
                       f2 = log(0.001),
                       f3 = log(0.001),
                       f4 = log(0.001),
-                      a  = -0.01,               ## per-spore affect on feeding rate
+                      a  = -0.01,               ## per-spore affect on feeding rate/strength of anorexia
                       t  = 1.0,
                       sd = log(0.1)),           ## observation error in feeding
             upper = c(u1 = log(0.0009),
@@ -299,13 +297,12 @@ nll2 <- function(params, data, mod) {
   v <- 10                                                        ## volume 
   
   nll <- 0                                                       ## for storage of the final NLL
-  for (id in unique(data$ID)) {                                  ## For each age.day value, compute the NLL of its set of parameter values and add this to the existing total
+  for (id in unique(data$ID)) {                                  ## For each GENOTYPE value, compute the NLL of its set of parameter values and add this to the existing total
     
-    fhat <- c(exp(params["f1"]),                                 ## transform age/day-specific feeding rate back to the natural scale and choose the fhat value for this genotype
+    fhat <- c(exp(params["f1"]),                                 ## transform age/day-specific feeding rate back to the                                                                        natural scale and choose the fhat value (per genotype)
               exp(params["f2"]),
               exp(params["f3"]),
-              exp(params["f4"]),
-              exp(params["f5"]))[id] %>% unname
+              exp(params["f4"]))[id] %>% unname
     a  <- params["a"] %>% unname                                 ## per-spore effect on feeding can already vary between -Inf (a<0 implies a decrease in feeding rate with spores) and Inf (a>0 implies an increase in feeding rate with spores)
     sd <- exp(params["sd"]) %>% unname
     
@@ -329,11 +326,11 @@ nll2 <- function(params, data, mod) {
                                    fhat*(data2$mm)*exp(-1.5*a*data2$P0))
     )
     
-    ## if any of the feeding rates are negative, this can generate a negative prob of infection,  breaking dbinom and generating errors
-    ## these are bad parameter sets, so simply assign them very high -logLik values. Note: you shouldn't assign a log-likelihood of 0, as although 
-    ## the likelihood must be a positive number, the log-likelihood can be negative if the likelihood is small, which it often will be when the fitting 
-    ## algorithm gets started. Thus, assigning a value of 0 might actually be saying that this parameter set isn't terrible whereas assigning it a value of 
-    ## Inf says that this parameter set is the worst.
+## if any of the feeding rates are negative, this can generate a negative prob of infection,  breaking dbinom and generating errors
+## these are bad parameter sets, so simply assign them very high -logLik values. Note: you shouldn't assign a log-likelihood of 0, as although 
+## the likelihood must be a positive number, the log-likelihood can be negative if the likelihood is small, which it often will be when the fitting 
+## algorithm gets started. Thus, assigning a value of 0 might actually be saying that this parameter set isn't terrible whereas assigning it a value of 
+## Inf says that this parameter set is the worst.
     
     if (any (f_pred < 0))
       nll <- nll + Inf
@@ -342,8 +339,8 @@ nll2 <- function(params, data, mod) {
       lambda <- 1 - exp(-u*f_pred*data2$P0)                                         ## compute the expected probability of infection, given feeding and per-spore susceptibility
       
       
-      ## Compute the negative log-liklihood of observing log(data2$A1) algae remaining, under the expectation exp.A1, and the negative log-likelihood of observing the binary infection outcome data2$Infected, 
-      ## under the expected probability of infection lambda; sum these two NLLs, and add that sum to the total NLL across all genotypes
+## Compute the negative log-liklihood of observing log(data2$A1) algae remaining, under the expectation exp.A1, and the negative log-likelihood of observing the binary infection outcome data2$Infected, 
+## under the expected probability of infection lambda; sum these two NLLs, and add that sum to the total NLL across all genotypes
       nll <- -sum(dnorm(log(data2$A1), 
                         mean = exp.A1,
                         sd = sd,
@@ -437,15 +434,17 @@ registerDoParallel(cl)
 getDoParWorkers()             # sanity check to make sure we are actually running in parallel
 
 # use foreach and dopar as loop using cores = Total core -1
-fits <-foreach(i = 1:nrow(pars2)) %dopar%{
+fits <- foreach(i = 1:nrow(pars2)) %dopar%{
   library(subplex) # has to be included here, not sure why!
+  library(doParallel)         # for parallel computing
+  library(foreach)            # faster than a for loop
   print(i)
   subplex(par = unlist(pars2[i,]), 
           fn = nll2,
           data = data,
           mod ='mod4',
           hessian = FALSE,
-          control = list(maxit = 25000) # set to 10 just for testing code
+          control = list(maxit = 10) # set to 10 just for testing code
   ) -> fits[[i]]
 }
 
