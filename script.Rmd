@@ -73,15 +73,16 @@ subset(all_po_data, all_po_data$Time !="0")->po_data
 ##Removing NAs
 subset(po_data, po_data$Abs != "na")->po_data
 ##Making all the data numeric
-as.character(po_data$Abs)->po_data$Abs
-as.numeric(po_data$Abs)->po_data$Abs
-as.character(po_data$Prop_inf)->po_data$Prop_inf
-as.numeric(po_data$Prop_inf)->po_data$Prop_inf
+#as.character(po_data$Abs)->po_data$Abs
+#as.numeric(po_data$Abs)->po_data$Abs
+#as.character(po_data$Prop_inf)->po_data$Prop_inf
+#as.numeric(po_data$Prop_inf)->po_data$Prop_inf
 
 ####po_data includes:Genotypes (control=PBS), Spores (exposed to), ####
 ## Sample (sample number), Replicate (2 reps from each sample),
 ## time (in hours), Abs (absorbance value), and 
 ## Prop_inf (proportion of infected individuals in the sample)
+## No_in_sample (number of individuals in the sample)
 ```
 
 
@@ -467,104 +468,107 @@ summary(basic)
     geom_point()+
     theme_classic())
 
-##testing a general model for everything
-all.glm<-glm(Abs ~ Time + Genotype + Spores + Prop_inf, data=po_data)                      
-summary(all.glm)
-
-#mixed.lmer<-lmer(Abs ~ Time + (1|Genotype) + Spores, data=po_data)
-#summary(mixed.lmer)
-
-#plot(mixed.lmer)
-#qqnorm(resid(mixed.lmer))
-#qqline(resid(mixed.lmer))
-
-#(mm_plot<-ggplot(po_data, aes(x=Time, y=Abs, color=Spores)) +
-#    facet_wrap(~Genotype, nrow= 2) +
-#    geom_point(alpha=0.5) +
-#    theme_classic())
-
-#### Plots for 4.5 hour time point ####
-
-#subset the data to only include time "4.5"
-subset(po_data, po_data$Time == "4.5")->po4.5
-
-##Does level of exposure and infection status predict the amount of active PO?
-# Thoughts: If an ind. fights off infection they will have high active PO;
-# if an ind. trys to fight off an infection and fails they will have low active PO = resources used elsewhere
-(inf_plot_4.5<-ggplot(subset(po4.5, Genotype != "Control"), aes(x=Spores, y=Prop_inf, color=Abs))+
-    scale_color_gradient(low = "white", high = "darkblue")+
-    theme_classic()+
-    geom_point() +
-    facet_wrap(~Genotype))
 
 
 ### Now look at the change in abs which equivalent to the amount of active PO produced ####
-#ADD CHANGE IN ABS (ACTIVE PHENOLOXIDASE)
+#find initial absorbances
 initial<-subset(po_data, po_data$Time == 1)
-#calculating the change in absorbance
+#find final absorbances
+subset(po_data, po_data$Time == "4.5")->po4.5
+#calculate the change in absorbance
 delta_po<-po4.5$Abs - initial$Abs
 # multiplying by 1000 to get "activity units" (Mucklow & Ebert, 2003)
 delta_po<-delta_po*1000
 # adding the delta_po values back to dataframe
 initial$delta_po<-delta_po
+#average across replicates and divide by the number of individuals in the sample
+po<-initial %>%
+  group_by(Genotype, Spores, Sample, Prop_inf, No_in_sample) %>%
+  summarise(delta_po = mean(delta_po))
+
+po$cor_delta_po<-po$delta_po/po$No_in_sample
+
+po<-subset(po, Genotype != "Control")
+
+
 
 ##Does level of exposure and infection status predict the amount of active PO?
-(active_po_plot<-ggplot(subset(initial, Genotype != "Control"), 
-                        aes(x=Spores, y=Prop_inf, 
-                            size=delta_po, color=delta_po))+
+# Thoughts: If an ind. fights off infection they will have high active PO;
+# if an ind. trys to fight off an infection and fails they will have low active PO = resources used elsewhere
+
+po %>% 
+  ggplot()+
+  geom_point(aes(x=Spores, y = cor_delta_po, size = Prop_inf))+
+  facet_grid(~Genotype)
+
+
+
+##Does level of exposure and infection status predict the amount of active PO?
+po %>%
+  ggplot(aes(x=Spores, y=Prop_inf, size=cor_delta_po, color=cor_delta_po))+
     scale_color_gradient(low = "white", high = "darkblue")+
     theme_classic()+
     geom_point() +
     labs(x="Spore level (spores/ml)", y="Proportion of individuals infected")+
-    facet_wrap(~Genotype))
+    facet_wrap(.~Genotype)
 
 ##Another way of looking at the same data 
-ggplot(subset(initial, Genotype != "Control"),aes(x=Spores, y=delta_po, color=Genotype, size=Prop_inf)) + 
+po %>%
+  ggplot(aes(x=Spores, y=cor_delta_po, color=Genotype, size=Prop_inf)) + 
   geom_point() +
   theme_classic()
 
-
-#same as above without Genotype coloring
-ggplot(subset(initial, Genotype != "Control"),aes(x=Spores, y=delta_po, size=Prop_inf)) + 
-  geom_point() +
-  theme_classic()
 
 ####1/15/20 Clay suggests a ANCOVA for data analysis -- covariate = Prop_inf####
 
-#with interaction : Proportion infected significant
-fit1<-aov(delta_po ~ Genotype + Spores * Prop_inf, data=subset(initial,Genotype!="Control")) 
+#with interaction : Spore levle significant
+fit1<-aov(cor_delta_po ~ Genotype + Spores * Prop_inf, data=po) 
 summary(fit1)
-#without interaction : Proportion infected and Genotype significant
-fit2<-aov(delta_po ~ Genotype + Spores + Prop_inf -1 , data=subset(initial,Genotype!="Control")) 
-
+#without interaction : Spore level and Genotype significant
+fit2<-aov(cor_delta_po ~ Genotype + Spores + Prop_inf -1 , data=po) 
 summary(fit2)
-#No interaction between spore level & proportion of infected individuals
+
 anova(fit1,fit2) 
 
 ####The best model ####
 
-summary(lm(delta_po ~ Genotype + Spores + Prop_inf -1, data=subset(initial,Genotype!="Control")))
-# Standard is significantly different than the other genotypes
+summary(lm(cor_delta_po ~ Genotype + Spores + Prop_inf -1, data=po))
+# All genotypes are significant 
 # As spore level increases, so does active PO
 # As the number of infected individuals in a sample increase, active PO decreases
 
 ## All these make sense ^^^
 
 #increased spores leads to higher active PO (seems to be driven by two points)
-(ggplot(subset(initial, Genotype != "Control"), aes(x=Spores, y=delta_po))+
+(ggplot(po, aes(x=Spores, y=cor_delta_po))+
     geom_point()+
     geom_smooth(method="lm")+
     theme_classic())
 
 
 #increased proportion infected leads to lower active PO (seems to be driven by two points)
-(ggplot(subset(initial, Genotype != "Control"), aes(x=Prop_inf, y=delta_po))+
+(ggplot(po, aes(x=Prop_inf, y=cor_delta_po))+
     geom_point()+
     geom_smooth(method="lm")+
     theme_classic())
 
-# add a binomial line to the figures ^^^^
-# and run binomial glm
+
+####
+
+ggplot()+
+    geom_point(po, mapping=aes(x=Spores, y=cor_delta_po, fill=Prop_inf),
+               size=5, pch=21)+
+    facet_grid(.~Genotype)+
+    theme_classic()+
+    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
+ #   theme(panel.border = element_rect(color="black", fill="NA", size=.5),
+#          axis.title.x=element_blank(),
+#          axis.text.x=element_blank(),
+#          axis.ticks.x=element_blank(),
+#          strip.text.x = element_blank())+
+    labs(x="Exposure spore level", y="Active Phenoloxidase/Individual")
+
+
 
 ```
 
@@ -574,11 +578,11 @@ summary(lm(delta_po ~ Genotype + Spores + Prop_inf -1, data=subset(initial,Genot
 ```{r average_PO_plot, echo = FALSE}
 #make average phenoloxidase data 
 
-po_av<-initial %>%
+po_av<-po %>%
   group_by(Genotype, Spores) %>%
-  summarise(av_delta_po = mean(delta_po, na.rm = T), #average active phenoloxidase
-            sd = sd(delta_po, na.rm = T), #sd active phenoloxidase
-            count = length(delta_po), # count per genotype*spore level
+  summarise(av_delta_po = mean(cor_delta_po, na.rm = T), #average active phenoloxidase
+            sd = sd(cor_delta_po, na.rm = T), #sd active phenoloxidase
+            count = length(cor_delta_po), # count per genotype*spore level
             se= sd/sqrt(count), #se of active phenolxidase
             inf = mean(Prop_inf, na.rm=T), # average proportion infected
             sd_inf = sd(Prop_inf, na.rm=T), #sd of proportion infected
@@ -588,7 +592,7 @@ po_av<-initial %>%
 
 
 PO<-ggplot()+
-    geom_point(subset(po_av, Genotype != 'Control'), mapping=aes(x=Spores, y=av_delta_po),
+    geom_point(po_av, mapping=aes(x=Spores, y=av_delta_po),
                size=5, pch=22)+
     geom_errorbar(subset(po_av, Genotype != 'Control'), mapping=aes(x=Spores, 
                                            ymin=av_delta_po-se,
@@ -602,7 +606,7 @@ PO<-ggplot()+
           axis.text.x=element_blank(),
           axis.ticks.x=element_blank(),
           strip.text.x = element_blank())+
-    labs(x="Exposure spore level", y="Active Phenoloxidase")
+    labs(x="Exposure spore level", y="Active Phenoloxidase/Individual")
 ```
 
 
