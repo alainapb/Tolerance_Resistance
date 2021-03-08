@@ -227,16 +227,16 @@ summary(with(filter(animal_mean, Genotype == "Midland 252"), lm(fr_sw~ mean_size
 # r =  0.14, and R2 = 0.12 ***
 
 
-#A'45
-with(filter(animal_mean, Genotype == "A'45"), plot(fr_sw ~ mean_size_animal))
-with(filter(animal_mean, Genotype == "A'45"), cor.test(fr_sw, mean_size_animal)) #r=.18 
+#A45
+with(filter(animal_mean, Genotype == "A45"), plot(fr_sw ~ mean_size_animal))
+with(filter(animal_mean, Genotype == "A45"), cor.test(fr_sw, mean_size_animal)) #r=.18 
 
 
-#control only Midland 281 do NOT have a correlation either
-with(filter(animal_mean, Genotype == "A'45", Spore_level == 0), plot(fr_sw ~ mean_size_animal))
-with(filter(animal_mean, Genotype == "A'45", Spore_level == 0), cor.test(fr_sw, mean_size_animal))
+#control only A45 do NOT have a correlation either
+with(filter(animal_mean, Genotype == "A45", Spore_level == 0), plot(fr_sw ~ mean_size_animal))
+with(filter(animal_mean, Genotype == "A45", Spore_level == 0), cor.test(fr_sw, mean_size_animal))
 
-summary(with(filter(animal_mean, Genotype == "A'45"), lm(fr_sw~ mean_size_animal))) 
+summary(with(filter(animal_mean, Genotype == "A45"), lm(fr_sw~ mean_size_animal))) 
 # r =  0.03, and R2 = 0.02
 ```
  
@@ -371,7 +371,7 @@ anova(feed_inf, test="Chi")
 ####Does feeding rate and spore level at exposure determine infection intensity?####
 ####################################################################################
 
-summary(feed_spore<-glm(spores_ul ~ fr_sw + mean_size_animal + Spore_level + Genotype, 
+summary(feed_spore<-glm(spores_ul ~ fr_sw + Spore_level + Genotype*mean_size_animal, 
                         data=filter(animal_mean, spores_ul > 0), 
                         family=Gamma))
 
@@ -537,7 +537,15 @@ summary(lm(cor_delta_po ~ Genotype + Spores + Prop_inf -1, data=po))
 # As spore level increases, so does active PO
 # As the number of infected individuals in a sample increase, active PO decreases
 
-## All these make sense ^^^
+
+
+#### 3/8/21  Add in a mixed effects model that uses the average feeding rate of the individuals in each sample ### 
+
+## First, add column in animal_mean that states which po sample each animal belongs to
+
+## Second, summarise feeding rate and se per po sample
+
+## Add to po dataframe
 
 #increased spores leads to higher active PO (seems to be driven by two points)
 (ggplot(po, aes(x=Spores, y=cor_delta_po))+
@@ -546,7 +554,7 @@ summary(lm(cor_delta_po ~ Genotype + Spores + Prop_inf -1, data=po))
     theme_classic())
 
 
-#increased proportion infected leads to lower active PO (seems to be driven by two points)
+#proportion infected doesn't chnage active PO 
 (ggplot(po, aes(x=Prop_inf, y=cor_delta_po))+
     geom_point()+
     geom_smooth(method="lm")+
@@ -578,7 +586,8 @@ ggplot()+
 ```{r average_PO_plot, echo = FALSE}
 #make average phenoloxidase data 
 
-po_av<-po %>%
+po_av1<-po %>%
+  filter(Prop_inf < .5) %>%
   group_by(Genotype, Spores) %>%
   summarise(av_delta_po = mean(cor_delta_po, na.rm = T), #average active phenoloxidase
             sd = sd(cor_delta_po, na.rm = T), #sd active phenoloxidase
@@ -589,11 +598,28 @@ po_av<-po %>%
             inf_se = sd_inf/sqrt(count)) %>% 
   dplyr::select(c(1,2,3,6,7,9))
 
+po_av1$infected<-0
+
+po_av2<-po %>%
+  filter(Prop_inf > .5) %>%
+  group_by(Genotype, Spores) %>%
+  summarise(av_delta_po = mean(cor_delta_po, na.rm = T), #average active phenoloxidase
+            sd = sd(cor_delta_po, na.rm = T), #sd active phenoloxidase
+            count = length(cor_delta_po), # count per genotype*spore level
+            se= sd/sqrt(count), #se of active phenolxidase
+            inf = mean(Prop_inf, na.rm=T), # average proportion infected
+            sd_inf = sd(Prop_inf, na.rm=T), #sd of proportion infected
+            inf_se = sd_inf/sqrt(count)) %>% 
+  dplyr::select(c(1,2,3,6,7,9))
+
+po_av2$infected<-1
+
+po_av<-rbind(po_av1, po_av2)
 
 
 PO<-ggplot()+
-    geom_point(po_av, mapping=aes(x=Spores, y=av_delta_po),
-               size=5, pch=22)+
+    geom_point(po_av, mapping=aes(x=Spores, y=av_delta_po, fill = as.factor(infected)),
+               size=5, pch=22, show.legend = FALSE)+
     geom_errorbar(subset(po_av, Genotype != 'Control'), mapping=aes(x=Spores, 
                                            ymin=av_delta_po-se,
                                            ymax=av_delta_po+se),
