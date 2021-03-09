@@ -15,7 +15,7 @@ library(bbmle)
 library(car)
 library(knitr)
 library(tidyr)
-#library(lme4)
+library(lme4)
 
 #setwd()
 
@@ -53,7 +53,7 @@ names(all.data.joined)
 drops <- c("Sex.y", "Length_Day_7", "Length_Day_20", "DOB", "Total.Offspring")
 all.data.joined<-all.data.joined[ , !(names(all.data.joined) %in% drops)]
 
-colnames(all.data.joined)<-c("Genotype", "Spore_level", "Plate", "Animal", "Sex", "Technical_Replicate", "Fluorometry_Reading", "Length_mm", "Size_mm2", "Final_length_mm", "Final_Size_mm2", "Growth_mm2", "Infected_Uninfected", "Susceptible", "Infected", "Spores_ul", "Total_Fecundity", "Control_Number", "Control_Technical_Replicate", "Control_Fluor_Reading", "USE_Control_Fluor_Reading", "Plate_Control", "Time.till.death.days", "Censured", "Growth_mm", "Age_1st_clutch", "Indivdual_ID")
+colnames(all.data.joined)<-c("Genotype", "Spore_level", "Plate", "Animal", "Sex", "Technical_Replicate", "Fluorometry_Reading", "Length_mm", "Size_mm2", "Final_length_mm", "Final_Size_mm2", "Growth_mm2", "Infected_Uninfected", "Susceptible", "Infected", "Spores_ul", "Total_Fecundity", "Control_Number", "Control_Technical_Replicate", "Control_Fluor_Reading", "USE_Control_Fluor_Reading", "Plate_Control", "Sample", "Time.till.death.days", "Censured", "Growth_mm", "Age_1st_clutch", "Indivdual_ID")
 
 ##Remove males from dataframe
 all.female<-subset(all.data.joined, all.data.joined$Sex == "F")
@@ -131,7 +131,8 @@ animal_mean <- all.female %>%
             spores_ul=mean(Spores_ul, na.rm = TRUE),
             growth = mean(Growth_mm, na.rm = TRUE),
             fecundity = mean(Total_Fecundity, na.rm=TRUE),
-            age_clutch_1 = mean(Age_1st_clutch, na.rm=TRUE))
+            age_clutch_1 = mean(Age_1st_clutch, na.rm=TRUE),
+            Sample = mean(Sample))
 animal_mean
 
 ##length correcting feeding rate for each animal
@@ -464,10 +465,6 @@ summary(basic)
     geom_smooth(method="lm")+
     theme_classic())
 
-(color_plot<-ggplot(po_data, aes(x=Time, y =Abs, color=Genotype)) +
-    geom_point()+
-    theme_classic())
-
 
 
 ### Now look at the change in abs which equivalent to the amount of active PO produced ####
@@ -490,6 +487,8 @@ po$cor_delta_po<-po$delta_po/po$No_in_sample
 
 po<-subset(po, Genotype != "Control")
 
+names(po)[2]<-"Spore_level"
+
 
 
 ##Does level of exposure and infection status predict the amount of active PO?
@@ -498,14 +497,14 @@ po<-subset(po, Genotype != "Control")
 
 po %>% 
   ggplot()+
-  geom_point(aes(x=Spores, y = cor_delta_po, size = Prop_inf))+
+  geom_point(aes(x=Spore_level, y = cor_delta_po, size = Prop_inf))+
   facet_grid(~Genotype)
 
 
 
 ##Does level of exposure and infection status predict the amount of active PO?
 po %>%
-  ggplot(aes(x=Spores, y=Prop_inf, size=cor_delta_po, color=cor_delta_po))+
+  ggplot(aes(x=Spore_level, y=Prop_inf, size=cor_delta_po, color=cor_delta_po))+
     scale_color_gradient(low = "white", high = "darkblue")+
     theme_classic()+
     geom_point() +
@@ -514,41 +513,65 @@ po %>%
 
 ##Another way of looking at the same data 
 po %>%
-  ggplot(aes(x=Spores, y=cor_delta_po, color=Genotype, size=Prop_inf)) + 
+  ggplot(aes(x=Spore_level, y=cor_delta_po, color=Genotype, size=Prop_inf)) + 
   geom_point() +
   theme_classic()
 
 
 ####1/15/20 Clay suggests a ANCOVA for data analysis -- covariate = Prop_inf####
 
-#with interaction : Spore levle significant
-fit1<-aov(cor_delta_po ~ Genotype + Spores * Prop_inf, data=po) 
+#with interaction : Spore level significant
+fit1<-aov(cor_delta_po ~ Genotype + Spore_level * Prop_inf, data=po) 
 summary(fit1)
 #without interaction : Spore level and Genotype significant
-fit2<-aov(cor_delta_po ~ Genotype + Spores + Prop_inf -1 , data=po) 
+fit2<-aov(cor_delta_po ~ Genotype + Spore_level + Prop_inf -1 , data=po) 
 summary(fit2)
 
 anova(fit1,fit2) 
 
 ####The best model ####
 
-summary(lm(cor_delta_po ~ Genotype + Spores + Prop_inf -1, data=po))
+summary(lm(cor_delta_po ~ Genotype + Spore_level + Prop_inf -1, data=po))
 # All genotypes are significant 
 # As spore level increases, so does active PO
 # As the number of infected individuals in a sample increase, active PO decreases
 
 
 
-#### 3/8/21  Add in a mixed effects model that uses the average feeding rate of the individuals in each sample ### 
+#### 3/8/21  Add in a mixed effects model that uses the average feeding rate of the individuals in each sample #### 
 
-## First, add column in animal_mean that states which po sample each animal belongs to
+## First, add column in animal_mean that states which po sample each animal belongs to : Done!
 
-## Second, summarise feeding rate and se per po sample
+## Second, summarise feeding rate and se per po sample: Done!
+po_feed<-animal_mean %>%
+  group_by(Genotype, Spore_level, Sample) %>%
+  summarise(fr = mean(fr_sw, na.rm = T), #average feeding rate
+            sd = sd(fr_sw, na.rm = T), #sd feeding rate
+            count = length(fr_sw), # count per genotype*spore level
+            se= sd/sqrt(count),
+            size = mean(mean_size_animal)) #se of feeding rate
+#removed the animals not included in the po analysis 
+po_feed<-subset(po_feed, Sample != "NaN")
+#po doesn't have Mid281_300_Sample3
+po_feed<-po_feed[-c(27),]
 
-## Add to po dataframe
+##Third, add to po dataframe : Done!
+all_po<-left_join(po, po_feed)
+
+##Now, add feeding rate to the model:
+
+summary(fit4<-lm(cor_delta_po ~ fr + Spore_level + Genotype -1, data = all_po))
+
+summary(fit5<-lm(cor_delta_po ~ Spore_level + Genotype -1, data = all_po))
+
+anova(fit4, fit5)
+
+##This would be better with a hierarchial model: Make David do this? 
+
+
 
 #increased spores leads to higher active PO (seems to be driven by two points)
-(ggplot(po, aes(x=Spores, y=cor_delta_po))+
+(ggplot(po, aes(x=Spore_level, y=cor_delta_po))+
     geom_point()+
     geom_smooth(method="lm")+
     theme_classic())
@@ -564,7 +587,7 @@ summary(lm(cor_delta_po ~ Genotype + Spores + Prop_inf -1, data=po))
 ####
 
 ggplot()+
-    geom_point(po, mapping=aes(x=Spores, y=cor_delta_po, fill=Prop_inf),
+    geom_point(po, mapping=aes(x=Spore_level, y=cor_delta_po, fill=Prop_inf),
                size=5, pch=21)+
     facet_grid(.~Genotype)+
     theme_classic()+
