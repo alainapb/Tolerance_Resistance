@@ -65,97 +65,142 @@ all.female <- subset(all.data.joined, all.data.joined$Sex == "F")
 
 #### LOAD PO DATA ####
 ##adding AJ2 active phenoloxidase data
-## JLH My changes here are b/c it looked like these calculations weren't averaged over the technical replicates? Were they and I missed something? The code below should calculate the mean for each biological replicate, which can then be used to calculate delta PO or whatever.
-## I have not looked yet to see whether or not this changed any of the results. 
+## updated 3/10/21
 all_po_data <- read_csv("data/AJ2_PO_for_R.csv")
 names(all_po_data)
 head(all_po_data)
 
-##cleaning PO data 
 
-##Removing time point 0
-subset(all_po_data, all_po_data$Time !="0") -> po_data
-##Removing NAs
-subset(po_data, po_data$Abs != "na") -> po_data
-##Making all the data numeric
-as.character(po_data$Abs) -> po_data$Abs
-as.numeric(po_data$Abs) -> po_data$Abs
-as.character(po_data$Prop_inf) -> po_data$Prop_inf
-as.numeric(po_data$Prop_inf) -> po_data$Prop_inf
+#### Now look at the change in abs which equivalent to the amount of active PO produced ####
+#find initial absorbances
+initial<-subset(all_po_data, all_po_data$Time == 1)
+#find final absorbances
+po4.5<-subset(all_po_data, all_po_data$Time == "4.5")
+#calculate the change in absorbance
+delta_po<-po4.5$Abs - initial$Abs
+# multiplying by 1000 to get "activity units" (Mucklow & Ebert, 2003)
+delta_po<-delta_po*1000
+# adding the delta_po values back to dataframe
+initial$delta_po<-delta_po
+#average across replicates and divide by the number of individuals in the sample
+po<-initial %>%
+  group_by(Genotype, Spores, Sample, Prop_inf, No_in_sample) %>%
+  summarise(delta_po = mean(delta_po))
 
-names(all_po_data)
-head(all_po_data)
+po$cor_delta_po<-po$delta_po/po$No_in_sample
 
-length(all_po_data)
-all_po_data
-#### po_data includes:Genotypes (control=PBS), Spores (exposed to), ####
-## Sample (sample number), Replicate (2 reps from each sample),
-## time (in hours), Abs (absorbance value), and 
-## Prop_inf (proportion of infected individuals in the sample)
+po<-subset(po, Genotype != "Control")
 
-# GOALS:
-# (1) take the average for each technical replicate
-# (2) calculate delta PO: take the mean_po at time point 4.5 and subtract it from mean_po at time point 1.0
-# (3) add that data frame to the dataframe above (all.data)
-clone.names <- as.character(unique(all_po_data$Genotype))
-clone.names
+names(po)[2]<-"Spore_level"
 
-# Here, the mean we want to calculate doesn't work because the na in the original dataframe
-# are not real R's NA, but they are just character strings na. Two possible solutions:
-# you delete the rows where those na are, or you change those na into proper NA. 
-# I chose the second solution, at line 154/155 (transformed into numeric first, because it was a factor)
+po 
 
-avg_po1 <- all_po_data %>% 
-  mutate(Abs = ifelse(Abs == "na", NA, Abs)) %>% 
-  mutate(Abs = as.numeric(Abs)) %>% 
-  arrange(Genotype, Spores, Time, Replicate, Sample) %>% 
-  group_by(Sample) %>%
-  mutate(mean_po = mean(Abs, na.rm = T)) %>% 
-  dplyr::select(Genotype, Spores, Sample, mean_po) %>% 
-  distinct() %>% as.data.frame()
-avg_po1 
+#### po includes:Genotypes, Spore_level (exposed to), ####
+## Sample (sample number), Prop_inf (proportion of infected individuals in the sample),
+## No_in_sample (number of animals in the sample), delta_po (change in po activity),
+## and cor_delta_po (change in po corrected for the number of individuals in the sample)
 
 
-#### CALCULATE DELTA PO ####
+##Does level of exposure and infection status predict the amount of active PO?
+# Thoughts: If an ind. fights off infection they will have high active PO;
+# if an ind. trys to fight off an infection and fails they will have low active PO = resources used elsewhere
 
-# # subset the data to only include time "4.5"
-# final <- subset(all_po_data, all_po_data$Time == "4.5")
-# final$Abs
-# # 
-# # ### Now look at the change in abs which equivalent to the amount of active PO produced ####
-# # #ADD CHANGE IN ABS (ACTIVE PHENOLOXIDASE)
-# initial <- subset(all_po_data, all_po_data$Time == 1)
-# initial$Abs
-# # 
-# 
-# # S if you run this, remember to convert factors to numeric (both final$abs and
-# # intiial$abs are factors, you have to convert them to numeric), like
-# final$Abs <- as.numeric(final$Abs)
-# initial$Abs <- as.numeric(initial$Abs)
-
-# #calculating the change in absorbance
-# delta_po <- final$Abs - initial$Abs
-# 
-# # multiplying by 1000 to get "activity units" (Mucklow & Ebert, 2003)
-# delta_po <- delta_po*1000
-# # adding the delta_po values back to dataframe
-# initial$delta_po <- delta_po
-# 
+po %>% 
+  ggplot()+
+  geom_point(aes(x=Spore_level, y = cor_delta_po, size = Prop_inf))+
+  facet_grid(~Genotype)
 
 
-### Alaina was curious 2-26-21 ###
-#initial %>%
-#  filter(Genotype != "Control", Spores != "0") %>%
-#  ggplot()+
-#  geom_point(aes(x=Prop_inf, y = delta_po, color = as.factor(Spores)))+
-#  facet_grid(Genotype ~.)+
-#  theme_bw()
 
-#initial %>%
-#  filter(Genotype != "Control") %>%
-#  ggplot()+
-#  geom_boxplot(aes(x=as.factor(Spores), y = delta_po, fill = as.factor(Spores)))+
-#  facet_grid(.~ Genotype)
+##Does level of exposure and infection status predict the amount of active PO?
+po %>%
+  ggplot(aes(x=Spore_level, y=Prop_inf, size=cor_delta_po, color=cor_delta_po))+
+    scale_color_gradient(low = "white", high = "darkblue")+
+    theme_classic()+
+    geom_point() +
+    labs(x="Spore level (spores/ml)", y="Proportion of individuals infected")+
+    facet_wrap(.~Genotype)
+
+#with interaction : Spore level significant
+fit1<-aov(cor_delta_po ~ Genotype + Spore_level * Prop_inf, data=po) 
+summary(fit1)
+#without interaction : Spore level and Genotype significant
+fit2<-aov(cor_delta_po ~ Genotype + Spore_level + Prop_inf -1 , data=po) 
+summary(fit2)
+
+anova(fit1,fit2) 
+
+####The best model ####
+
+summary(lm(cor_delta_po ~ Genotype + Spore_level + Prop_inf -1, data=po))
+# All genotypes are significant 
+# As spore level increases, so does active PO
+# As the number of infected individuals in a sample increase, active PO decreases
+
+
+
+#### 3/8/21  Add in a mixed effects model that uses the average feeding rate of the individuals in each sample #### 
+
+## First, add column in animal_mean that states which po sample each animal belongs to : Done!
+
+## Second, summarise feeding rate and se per po sample: Done!
+po_feed<-animal_mean %>%
+  group_by(Genotype, Spore_level, Sample) %>%
+  summarise(fr = mean(fr_sw, na.rm = T), #average feeding rate
+            sd = sd(fr_sw, na.rm = T), #sd feeding rate
+            count = length(fr_sw), # count per genotype*spore level
+            se= sd/sqrt(count),
+            size = mean(mean_size_animal),
+            spores = mean(spores_ul),
+            sc_spores = spores/mean(final_body_size)) #length cubed
+#removed the animals not included in the po analysis 
+po_feed<-subset(po_feed, Sample != "NaN")
+#po doesn't have Mid281_300_Sample3
+po_feed<-po_feed[-c(27),]
+
+##Third, add to po dataframe : Done!
+all_po<-left_join(po, po_feed)
+
+##Now, add feeding rate to the model:
+
+summary(fit4<-lm(cor_delta_po ~ fr + Spore_level + Genotype + spores -1, data = all_po))
+
+summary(fit5<-lm(cor_delta_po ~ Spore_level + Genotype -1, data = all_po))
+
+anova(fit4, fit5)
+
+##This would be better with a hierarchial model: Make David do this? 
+
+
+
+#increased spores leads to higher active PO (seems to be driven by two points)
+(ggplot(po, aes(x=Spore_level, y=cor_delta_po))+
+    geom_point()+
+    geom_smooth(method="lm")+
+    theme_classic())
+
+
+#proportion infected doesn't chnage active PO 
+(ggplot(po, aes(x=cor_delta_po, y=Prop_inf))+
+    geom_point()+
+    geom_smooth(method="lm")+
+    theme_classic())
+
+
+####
+
+ggplot()+
+    geom_point(po, mapping=aes(x=Spore_level, y=cor_delta_po, fill=Prop_inf),
+               size=5, pch=21)+
+    facet_grid(.~Genotype)+
+    theme_bw()+
+    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
+ #   theme(panel.border = element_rect(color="black", fill="NA", size=.5),
+#          axis.title.x=element_blank(),
+#          axis.text.x=element_blank(),
+#          axis.ticks.x=element_blank(),
+#          strip.text.x = element_blank())+
+    labs(x="Exposure spore level", y="Active Phenoloxidase/Individual")
 ```
 
 

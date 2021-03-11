@@ -549,7 +549,9 @@ po_feed<-animal_mean %>%
             sd = sd(fr_sw, na.rm = T), #sd feeding rate
             count = length(fr_sw), # count per genotype*spore level
             se= sd/sqrt(count),
-            size = mean(mean_size_animal)) #se of feeding rate
+            size = mean(mean_size_animal),
+            spores = mean(spores_ul),
+            sc_spores = spores/mean(final_body_size)) #length cubed
 #removed the animals not included in the po analysis 
 po_feed<-subset(po_feed, Sample != "NaN")
 #po doesn't have Mid281_300_Sample3
@@ -560,7 +562,7 @@ all_po<-left_join(po, po_feed)
 
 ##Now, add feeding rate to the model:
 
-summary(fit4<-lm(cor_delta_po ~ fr + Spore_level + Genotype -1, data = all_po))
+summary(fit4<-lm(cor_delta_po ~ fr + Spore_level + Genotype + spores -1, data = all_po))
 
 summary(fit5<-lm(cor_delta_po ~ Spore_level + Genotype -1, data = all_po))
 
@@ -578,7 +580,7 @@ anova(fit4, fit5)
 
 
 #proportion infected doesn't chnage active PO 
-(ggplot(po, aes(x=Prop_inf, y=cor_delta_po))+
+(ggplot(po, aes(x=cor_delta_po, y=Prop_inf))+
     geom_point()+
     geom_smooth(method="lm")+
     theme_classic())
@@ -590,7 +592,7 @@ ggplot()+
     geom_point(po, mapping=aes(x=Spore_level, y=cor_delta_po, fill=Prop_inf),
                size=5, pch=21)+
     facet_grid(.~Genotype)+
-    theme_classic()+
+    theme_bw()+
     scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
  #   theme(panel.border = element_rect(color="black", fill="NA", size=.5),
 #          axis.title.x=element_blank(),
@@ -743,7 +745,7 @@ Repo<-ggplot()+
 
 
 ```{r Figure_1, echo = FALSE}
-Feed / PO / PInf / Spore / Repo
+Feed / PInf / Spore / Repo
 
 ggsave("Figures/figure_1.png", width = 5, height = 8)
 ```
