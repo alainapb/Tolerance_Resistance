@@ -250,11 +250,14 @@ ggplot()+
     facet_grid(.~Genotype)+
     theme_bw()+
     scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
- #   theme(panel.border = element_rect(color="black", fill="NA", size=.5),
-#          axis.title.x=element_blank(),
-#          axis.text.x=element_blank(),
-#          axis.ticks.x=element_blank(),
-#          strip.text.x = element_blank())+
+  theme(panel.border = element_rect(color="black", fill="NA", size=.5),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5),
+          strip.background=element_rect(fill= "transparent"),
+          strip.text.x = element_text(color="black", size = 17))+
     labs(x="Exposure spore level", y="Active Phenoloxidase/Individual")
 
 
