@@ -262,6 +262,61 @@ ggplot()+
 
 
 
+### Make average phenoloxidase data ###
+
+po_av1<-po %>%
+  filter(Prop_inf < .5) %>%
+  group_by(Genotype, Spore_level) %>%
+  summarise(av_delta_po = mean(cor_delta_po, na.rm = T), #average active phenoloxidase
+            sd = sd(cor_delta_po, na.rm = T), #sd active phenoloxidase
+            count = length(cor_delta_po), # count per genotype*spore level
+            se= sd/sqrt(count), #se of active phenolxidase
+            inf = mean(Prop_inf, na.rm=T), # average proportion infected
+            sd_inf = sd(Prop_inf, na.rm=T), #sd of proportion infected
+            inf_se = sd_inf/sqrt(count)) %>% 
+  dplyr::select(c(1,2,3,6,7,9))
+
+po_av1$infected<-0
+
+po_av2<-po %>%
+  filter(Prop_inf > .5) %>%
+  group_by(Genotype, Spore_level) %>%
+  summarise(av_delta_po = mean(cor_delta_po, na.rm = T), #average active phenoloxidase
+            sd = sd(cor_delta_po, na.rm = T), #sd active phenoloxidase
+            count = length(cor_delta_po), # count per genotype*spore level
+            se= sd/sqrt(count), #se of active phenolxidase
+            inf = mean(Prop_inf, na.rm=T), # average proportion infected
+            sd_inf = sd(Prop_inf, na.rm=T), #sd of proportion infected
+            inf_se = sd_inf/sqrt(count)) %>% 
+  dplyr::select(c(1,2,3,6,7,9))
+
+po_av2$infected<-1
+
+po_av<-rbind(po_av1, po_av2)
+
+
+po_av %>%
+  ggplot()+
+    geom_pointrange(aes(x=Spore_level, 
+                        y=av_delta_po, 
+                        ymin=av_delta_po-se, 
+                        ymax=av_delta_po+se,
+                        color = as.factor(infected)),
+               size=.75, 
+               alpha = 0.5,
+               show.legend = TRUE)+
+    facet_grid(.~Genotype)+
+    theme_classic()+
+    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
+    theme(panel.border = element_rect(color="black", fill="NA", size=.5),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5),
+          strip.background=element_rect(fill= "transparent"),
+          strip.text.x = element_text(color="black", size = 17))+
+    labs(x="Exposure spore level", y="Active Phenoloxidase/Individual")
 ```
 
 
