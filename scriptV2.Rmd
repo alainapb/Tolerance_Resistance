@@ -61,6 +61,63 @@ all.female <- subset(all.data.joined, all.data.joined$Sex == "F")
 
 
 
+```{r calculate_feeding_rate_means_for_each_individual, include = TRUE}
+
+#### Means of the controls  - these means for each treatment (i.e., plate_control) are then used in the calculation below ####
+ 
+
+summary_df <- all.female %>%
+  group_by(Plate_Control) %>%
+  mutate(Control_mean = mean(USE_Control_Flour_Reading, na.rm = T)) %>%
+  dplyr::select(Plate_Control, Control_mean) %>%
+  distinct() %>% as.data.frame()
+
+
+
+#match control mean with plate treatment
+map = setNames(summary_df$Control_mean,summary_df$Plate_Control)
+all.female$Control_mean <- map[as.character(all.female$Plate)]
+all.female$Control_mean
+
+v <- 10 
+## volume, mL
+t <- 7  
+##time, hours
+
+k <- all.female$Control_mean/all.female$Flourometry_Reading
+k
+##difference in feeding compared to control
+
+##calculate feeding rate (Sarnelle and Wilson)
+all.female$fr_sw <- log(k) * (v/t)
+
+#calculate mean fluor reading per animal (keep rate > 0)
+animal_mean <- all.female %>%
+  #keep fr_sw values > 0
+  filter(fr_sw > 0) %>%
+  #group based on these variables
+  group_by(Genotype, Spore_level, Animal, Plate, Control_mean) %>%
+  #means based on groups above
+  summarise(mean_surface_area = mean(Size_mm2, na.rm = TRUE),
+            mean_init_length = mean(Length_mm, na.rm = TRUE),
+            mean_final_length = mean(Final_length_mm, na.rm = TRUE),
+            mean_final_surface_area = mean(Final_Size_mm2, na.rm = TRUE),
+            mean_growth_length = mean(Total_Growth, na.rm = TRUE),
+            mean_feeding_rate = mean(fr_sw, na.rm = TRUE),
+            susc = mean(Susceptible, na.rm = TRUE),
+            inf = mean(Infected, na.rm = TRUE),
+            censured = mean(Censured, na.rm = TRUE),
+            spores_ul = mean(Spores_ul, na.rm = TRUE),
+            fecundity = mean(Total_Fecundity, na.rm = TRUE),
+            age_clutch_1 = mean(Age_1st_clutch, na.rm = TRUE),
+            Sample = mean(Sample, na.rm=TRUE))
+animal_mean
+
+```
+
+
+
+
 ```{r load_PO_data, echo = FALSE}
 
 #### LOAD PO DATA ####
@@ -146,13 +203,15 @@ summary(lm(cor_delta_po ~ Genotype + Spore_level + Prop_inf -1, data=po))
 ## Second, summarise feeding rate and se per po sample: Done!
 po_feed<-animal_mean %>%
   group_by(Genotype, Spore_level, Sample) %>%
-  summarise(fr = mean(fr_sw, na.rm = T), #average feeding rate
-            sd = sd(fr_sw, na.rm = T), #sd feeding rate
-            count = length(fr_sw), # count per genotype*spore level
+  summarise(fr = mean(mean_feeding_rate, na.rm = T), 
+            sd = sd(mean_feeding_rate, na.rm = T), 
+            count = length(mean_feeding_rate),
             se= sd/sqrt(count),
-            size = mean(mean_size_animal),
+            size = mean(mean_surface_area),
+            sc_fr = fr/size, 
             spores = mean(spores_ul),
-            sc_spores = spores/mean(final_body_size)) #length cubed
+            final_size = mean(mean_final_surface_area), 
+            sc_spores = spores/final_size) #length cubed
 #removed the animals not included in the po analysis 
 po_feed<-subset(po_feed, Sample != "NaN")
 #po doesn't have Mid281_300_Sample3
@@ -161,33 +220,29 @@ po_feed<-po_feed[-c(27),]
 ##Third, add to po dataframe : Done!
 all_po<-left_join(po, po_feed)
 
-##Now, add feeding rate to the model:
+##Now, add feeding rate and spore yield to the model:
 
-summary(fit4<-lm(cor_delta_po ~ fr + Spore_level + Genotype + spores -1, data = all_po))
+summary(fit4<-lm(cor_delta_po ~ fr + Spore_level + Genotype + sc_spores, data = all_po))
 
-summary(fit5<-lm(cor_delta_po ~ Spore_level + Genotype -1, data = all_po))
-
-anova(fit4, fit5)
 
 ##This would be better with a hierarchial model: Make David do this? 
 
 
-
-#increased spores leads to higher active PO (seems to be driven by two points)
+#increased spore exposure to higher active PO?
 (ggplot(po, aes(x=Spore_level, y=cor_delta_po))+
     geom_point()+
     geom_smooth(method="lm")+
     theme_classic())
 
 
-#proportion infected doesn't chnage active PO 
+#proportion infected doesn't change active PO 
 (ggplot(po, aes(x=cor_delta_po, y=Prop_inf))+
     geom_point()+
     geom_smooth(method="lm")+
     theme_classic())
 
 
-####
+#### 
 
 ggplot()+
     geom_point(po, mapping=aes(x=Spore_level, y=cor_delta_po, fill=Prop_inf),
@@ -201,63 +256,12 @@ ggplot()+
 #          axis.ticks.x=element_blank(),
 #          strip.text.x = element_blank())+
     labs(x="Exposure spore level", y="Active Phenoloxidase/Individual")
+
+
+
 ```
 
 
-
-
-```{r calculate_feeding_rate_means_for_each_individual, include = TRUE}
-
-#### Means of the controls  - these means for each treatment (i.e., plate_control) are then used in the calculation below ####
- 
-
-summary_df <- all.female %>%
-  group_by(Plate_Control) %>%
-  mutate(Control_mean = mean(USE_Control_Flour_Reading, na.rm = T)) %>%
-  dplyr::select(Plate_Control, Control_mean) %>%
-  distinct() %>% as.data.frame()
-
-
-
-#match control mean with plate treatment
-map = setNames(summary_df$Control_mean,summary_df$Plate_Control)
-all.female$Control_mean <- map[as.character(all.female$Plate)]
-all.female$Control_mean
-
-v <- 10 
-## volume, mL
-t <- 7  
-##time, hours
-
-k <- all.female$Control_mean/all.female$Flourometry_Reading
-k
-##difference in feeding compared to control
-
-##calculate feeding rate (Sarnelle and Wilson)
-all.female$fr_sw <- log(k) * (v/t)
-
-#calculate mean fluor reading per animal (keep rate > 0)
-animal_mean <- all.female %>%
-  #keep fr_sw values > 0
-  filter(fr_sw > 0) %>%
-  #group based on these variables
-  group_by(Genotype, Spore_level, Animal, Plate, Control_mean) %>%
-  #means based on groups above
-  summarise(mean_surface_area = mean(Size_mm2, na.rm = TRUE),
-            mean_init_length = mean(Length_mm, na.rm = TRUE),
-            mean_final_length = mean(Final_length_mm, na.rm = TRUE),
-            mean_final_surface_area = mean(Final_Size_mm2, na.rm = TRUE),
-            mean_growth_length = mean(Total_Growth, na.rm = TRUE),
-            mean_feeding_rate = mean(fr_sw, na.rm = TRUE),
-            susc = mean(Susceptible, na.rm = TRUE),
-            inf = mean(Infected, na.rm = TRUE),
-            censured = mean(Censured, na.rm = TRUE),
-            spores_ul = mean(Spores_ul, na.rm = TRUE),
-            fecundity = mean(Total_Fecundity, na.rm = TRUE),
-            age_clutch_1 = mean(Age_1st_clutch, na.rm = TRUE))
-animal_mean
-
-```
 
 
 ```{r remove exposed but uninfected animals, include = TRUE}
