@@ -154,7 +154,7 @@ po<-subset(po, Genotype != "Control")
 
 names(po)[2]<-"Spore_level"
 
-po 
+
 
 #### po includes:Genotypes, Spore_level (exposed to), ####
 ## Sample (sample number), Prop_inf (proportion of infected individuals in the sample),
@@ -1253,7 +1253,10 @@ Midland 281:feeding rate significantly different between 0v.150 and 150v.300; fe
           axis.ticks.x=element_line(color="black", size = .5)))
 
 #Percent Infected (need to fit a binomial to this)
-(ggplot(filter(animal_mean, Spore_level != 0), aes(y=inf, x=mean_sc_fr, color = Genotype), size = 5)+
+animal_mean %>%
+  filter(Spore_level != 0) %>%
+  filter(mean_sc_fr < .8) %>%
+  ggplot(aes(y=inf, x=mean_sc_fr, color = Genotype), size = 5)+
     geom_point(aes(shape=as.factor(Spore_level)))+
     geom_smooth(method="lm", alpha = 0.2)+
     scale_color_brewer(palette = "Set2")+
@@ -1264,10 +1267,13 @@ Midland 281:feeding rate significantly different between 0v.150 and 150v.300; fe
           axis.title.y=element_text(color="black", size = 17),
           axis.text.x=element_text(color="black", size = 12),
           axis.text.y=element_text(color="black", size = 12),
-          axis.ticks.x=element_line(color="black", size = .5)))
+          axis.ticks.x=element_line(color="black", size = .5))
 
 #Growth... but its actual final body size 
-(ggplot(filter(animal_mean, inf == 1), aes(y=(mean_final_length^3), x=mean_sc_fr, color = Genotype), size = 5)+
+animal_mean %>%
+  filter(inf == 1) %>%
+  filter(mean_sc_fr < .8) %>%
+  ggplot(aes(y=(mean_final_length^3), x=mean_sc_fr, color = Genotype), size = 5)+
     geom_point(aes(shape=as.factor(Spore_level)))+
     geom_smooth(method="lm", alpha = 0.2)+
     scale_color_brewer(palette = "Set2")+
@@ -1278,11 +1284,14 @@ Midland 281:feeding rate significantly different between 0v.150 and 150v.300; fe
           axis.title.y=element_text(color="black", size = 17),
           axis.text.x=element_text(color="black", size = 12),
           axis.text.y=element_text(color="black", size = 12),
-          axis.ticks.x=element_line(color="black", size = .5)))
+          axis.ticks.x=element_line(color="black", size = .5))
 
 
 #Spore yield
-(ggplot(filter(animal_mean, inf == 1), aes(y=spores_ul, x=mean_sc_fr, color = Genotype), size = 5)+
+animal_mean %>%
+  filter(Spore_level != 0) %>%
+  filter(mean_sc_fr < .8) %>%
+  ggplot(aes(y=spores_ul, x=mean_sc_fr, color = Genotype), size = 5)+
     geom_point(aes(shape=as.factor(Spore_level)))+
     geom_smooth(method="lm", alpha = 0.2)+
     scale_color_brewer(palette = "Set2")+
@@ -1293,11 +1302,14 @@ Midland 281:feeding rate significantly different between 0v.150 and 150v.300; fe
           axis.title.y=element_text(color="black", size = 17),
           axis.text.x=element_text(color="black", size = 12),
           axis.text.y=element_text(color="black", size = 12),
-          axis.ticks.x=element_line(color="black", size = .5)))
+          axis.ticks.x=element_line(color="black", size = .5))
 
 
 #age at first clutch
-(ggplot(filter(animal_mean, inf == 1), aes(y=age_clutch_1, x=mean_sc_fr, color = Genotype), size = 5)+
+animal_mean %>%
+  filter(Spore_level != 0) %>%
+  filter(mean_sc_fr < .8) %>%
+  ggplot( aes(y=age_clutch_1, x=mean_sc_fr, color = Genotype), size = 5)+
     geom_point(aes(shape=as.factor(Spore_level)))+
     geom_smooth(method="lm", alpha = 0.2)+
     scale_color_brewer(palette = "Set2")+
@@ -1308,10 +1320,13 @@ Midland 281:feeding rate significantly different between 0v.150 and 150v.300; fe
           axis.title.y=element_text(color="black", size = 17),
           axis.text.x=element_text(color="black", size = 12),
           axis.text.y=element_text(color="black", size = 12),
-          axis.ticks.x=element_line(color="black", size = .5)))
+          axis.ticks.x=element_line(color="black", size = .5))
 
 #total offspring
-(ggplot(filter(animal_mean, inf == 1), aes(y=fecundity, x=mean_sc_fr, color = Genotype), size = 5)+
+animal_mean %>%
+  filter(Spore_level != 0) %>%
+  filter(mean_sc_fr < .8) %>%
+  ggplot(aes(y=fecundity, x=mean_sc_fr, color = Genotype), size = 5)+
     geom_point(aes(shape=as.factor(Spore_level)))+
     geom_smooth(method="lm", alpha = 0.2)+
     scale_color_brewer(palette = "Set2")+
@@ -1322,12 +1337,13 @@ Midland 281:feeding rate significantly different between 0v.150 and 150v.300; fe
           axis.title.y=element_text(color="black", size = 17),
           axis.text.x=element_text(color="black", size = 12),
           axis.text.y=element_text(color="black", size = 12),
-          axis.ticks.x=element_line(color="black", size = .5)))
+          axis.ticks.x=element_line(color="black", size = .5))
 
 
 #age at death.... not interesting
 animal_mean %>%
   filter(inf == 1) %>%
+  filter(mean_sc_fr < .8) %>%
   ggplot(mapping =aes(y=age_at_death, x=mean_sc_fr, color = Genotype), size = 5)+
     geom_point(aes(shape=as.factor(Spore_level)))+
     geom_smooth(method="lm", alpha = 0.2)+
