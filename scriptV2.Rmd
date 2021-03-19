@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
+
 library(tidyverse)
 
 
@@ -104,14 +105,17 @@ animal_mean <- all.female %>%
             mean_final_surface_area = mean(Final_Size_mm2, na.rm = TRUE),
             mean_growth_length = mean(Total_Growth, na.rm = TRUE),
             mean_feeding_rate = mean(fr_sw, na.rm = TRUE),
+            mean_sc_fr = mean_feeding_rate/(mean_init_length^3),
             susc = mean(Susceptible, na.rm = TRUE),
             inf = mean(Infected, na.rm = TRUE),
             censured = mean(Censured, na.rm = TRUE),
             spores_ul = mean(Spores_ul, na.rm = TRUE),
             fecundity = mean(Total_Fecundity, na.rm = TRUE),
             age_clutch_1 = mean(Age_1st_clutch, na.rm = TRUE),
+            age_at_death = mean(`Time till death_days`, na.rm = TRUE)+6,
             Sample = mean(Sample, na.rm=TRUE))
 animal_mean
+
 
 ```
 
@@ -189,7 +193,7 @@ anova(fit1,fit2)
 
 ####The best model ####
 
-summary(lm(cor_delta_po ~ Genotype + Spore_level + Prop_inf -1, data=po))
+summary(lm(cor_delta_po ~ Genotype + Spore_level + Prop_inf, data=po))
 # All genotypes are significant 
 # As spore level increases, so does active PO
 # As the number of infected individuals in a sample increase, active PO decreases
@@ -222,7 +226,12 @@ all_po<-left_join(po, po_feed)
 
 ##Now, add feeding rate and spore yield to the model:
 
-summary(fit4<-lm(cor_delta_po ~ fr + Spore_level + Genotype + sc_spores, data = all_po))
+summary(fit4<-lm(cor_delta_po ~ sc_fr + as.factor(Spore_level) + Genotype + sc_spores, data = filter(all_po, spores != 0)))
+
+view(all_po)
+
+summary(fit5<-lm(cor_delta_po ~ fr + Genotype + sc_spores, data = all_po))
+
 
 
 ##This would be better with a hierarchial model: Make David do this? 
@@ -242,7 +251,22 @@ summary(fit4<-lm(cor_delta_po ~ fr + Spore_level + Genotype + sc_spores, data = 
     theme_classic())
 
 
-#### 
+### We like this plot ## Make prettier!
+(ggplot(all_po, aes(y=cor_delta_po, x=sc_fr, color = Genotype), size = 5)+
+    geom_point(aes(shape=as.factor(Spore_level)))+
+    geom_smooth(method="lm", alpha = 0.2)+
+    scale_color_brewer(palette = "Set2")+
+    labs(x= "Size corrected feeding rate", y = "Active PO")+
+    theme_bw()+
+    theme(panel.border = element_rect(color="black", fill="NA", size=1),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5)))
+
+
+#### po by spore level and colored for prop. infected ####
 
 ggplot()+
     geom_point(po, mapping=aes(x=Spore_level, y=cor_delta_po, fill=Prop_inf),
@@ -262,7 +286,7 @@ ggplot()+
 
 
 
-### Make average phenoloxidase data ###
+#### Make average phenoloxidase data ####
 
 po_av1<-po %>%
   filter(Prop_inf < .5) %>%
@@ -447,14 +471,6 @@ filtered_df %>%
 #ggplot(animal_mean, aes(spores_ul, mean_final_surface_area)) + geom_point() + geom_smooth(method = "lm")
 
 ```
-
-
-
-
-
-
-
-
 
 
 ```{r  feeding rate and spore yield (sa), echo = FALSE}
@@ -737,6 +753,7 @@ Repo <- ggplot()+
           axis.ticks.x  = element_blank(),
           strip.text.x  = element_blank())+
     labs(x = "Exposure spore level", y = "Mean fecundity")
+
 
 ```
 
@@ -1081,6 +1098,9 @@ summary(b4<-glm(mean_growth_length ~ as.factor(Spore_level), b_0, family = gauss
 summary(multcomp::glht(b4, linfct = dmat))
 plot(summary(multcomp::glht(b4, linfct = dmat)))
 
+## Is PO significant? with and without spore yield: **acount for Prop_inf** 
+
+
 
 #########################
 #######    A45    #######
@@ -1213,3 +1233,102 @@ A45: first clutch and growth are significantly different between 0v.150 and 0v.3
 Midland 252: feeding rate significantly different between 0v.150; fecundity between 0v.150 and 0v.300; first clutch between all of them!; growth between 0v.150 and 0v.300
 
 Midland 281:feeding rate significantly different between 0v.150 and 150v.300; fecundity between 0v.150; first clutch between 0v150 and 0v300; growth between 0v150 and 0v300
+
+
+
+```{r 3_18_21_all_the_figures}
+
+#PO
+(ggplot(all_po, aes(y=cor_delta_po, x=sc_fr, color = Genotype), size = 5)+
+    geom_point(aes(shape=as.factor(Spore_level)))+
+    geom_smooth(method="lm", alpha = 0.2)+
+    scale_color_brewer(palette = "Set2")+
+    labs(x= "Size corrected feeding rate", y = "Active PO")+
+    theme_bw()+
+    theme(panel.border = element_rect(color="black", fill="NA", size=1),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5)))
+
+#Percent Infected (need to fit a binomial to this)
+(ggplot(filter(animal_mean, Spore_level != 0), aes(y=inf, x=mean_sc_fr, color = Genotype), size = 5)+
+    geom_point(aes(shape=as.factor(Spore_level)))+
+    geom_smooth(method="lm", alpha = 0.2)+
+    scale_color_brewer(palette = "Set2")+
+    labs(x= "Size corrected feeding rate", y = "Infected")+
+    theme_bw()+
+    theme(panel.border = element_rect(color="black", fill="NA", size=1),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5)))
+
+#Growth... but its actual final body size 
+(ggplot(filter(animal_mean, inf == 1), aes(y=(mean_final_length^3), x=mean_sc_fr, color = Genotype), size = 5)+
+    geom_point(aes(shape=as.factor(Spore_level)))+
+    geom_smooth(method="lm", alpha = 0.2)+
+    scale_color_brewer(palette = "Set2")+
+    labs(x= "Size corrected feeding rate", y = "Final body size")+
+    theme_bw()+
+    theme(panel.border = element_rect(color="black", fill="NA", size=1),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5)))
+
+
+#Spore yield
+(ggplot(filter(animal_mean, inf == 1), aes(y=spores_ul, x=mean_sc_fr, color = Genotype), size = 5)+
+    geom_point(aes(shape=as.factor(Spore_level)))+
+    geom_smooth(method="lm", alpha = 0.2)+
+    scale_color_brewer(palette = "Set2")+
+    labs(x= "Size corrected feeding rate", y = "Spore yield (spores/ul)")+
+    theme_bw()+
+    theme(panel.border = element_rect(color="black", fill="NA", size=1),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5)))
+
+
+#age at first clutch
+(ggplot(filter(animal_mean, inf == 1), aes(y=age_clutch_1, x=mean_sc_fr, color = Genotype), size = 5)+
+    geom_point(aes(shape=as.factor(Spore_level)))+
+    geom_smooth(method="lm", alpha = 0.2)+
+    scale_color_brewer(palette = "Set2")+
+    labs(x= "Size corrected feeding rate", y = "Age at 1st Clutch")+
+    theme_bw()+
+    theme(panel.border = element_rect(color="black", fill="NA", size=1),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5)))
+
+
+#age at death.... not interesting
+animal_mean %>%
+  filter(inf == 1) %>%
+  ggplot(mapping =aes(y=age_at_death, x=mean_sc_fr, color = Genotype), size = 5)+
+    geom_point(aes(shape=as.factor(Spore_level)))+
+    geom_smooth(method="lm", alpha = 0.2)+
+    scale_color_brewer(palette = "Set2")+
+    labs(x= "Size corrected feeding rate", y = "Age at death")+
+    theme_bw()+
+    theme(panel.border = element_rect(color="black", fill="NA", size=1),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5))
+
+
+#average clutch size or r
+
+```
+
