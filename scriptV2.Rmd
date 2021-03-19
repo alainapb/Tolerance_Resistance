@@ -1289,7 +1289,7 @@ animal_mean %>%
 
 #Spore yield
 animal_mean %>%
-  filter(Spore_level != 0) %>%
+  filter(inf == 1) %>%
   filter(mean_sc_fr < .8) %>%
   ggplot(aes(y=spores_ul, x=mean_sc_fr, color = Genotype), size = 5)+
     geom_point(aes(shape=as.factor(Spore_level)))+
@@ -1307,7 +1307,7 @@ animal_mean %>%
 
 #age at first clutch
 animal_mean %>%
-  filter(Spore_level != 0) %>%
+  filter(inf == 1) %>%
   filter(mean_sc_fr < .8) %>%
   ggplot( aes(y=age_clutch_1, x=mean_sc_fr, color = Genotype), size = 5)+
     geom_point(aes(shape=as.factor(Spore_level)))+
@@ -1324,7 +1324,7 @@ animal_mean %>%
 
 #total offspring
 animal_mean %>%
-  filter(Spore_level != 0) %>%
+  filter(inf == 1) %>%
   filter(mean_sc_fr < .8) %>%
   ggplot(aes(y=fecundity, x=mean_sc_fr, color = Genotype), size = 5)+
     geom_point(aes(shape=as.factor(Spore_level)))+
