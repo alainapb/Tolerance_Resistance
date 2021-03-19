@@ -1330,7 +1330,7 @@ animal_mean %>%
     geom_point(aes(shape=as.factor(Spore_level)))+
     geom_smooth(method="lm", alpha = 0.2)+
     scale_color_brewer(palette = "Set2")+
-    labs(x= "Size corrected feeding rate", y = "Age at 1st Clutch")+
+    labs(x= "Size corrected feeding rate", y = "Total Offspring")+
     theme_bw()+
     theme(panel.border = element_rect(color="black", fill="NA", size=1),
           axis.title.x=element_text(color="black", size = 17),
