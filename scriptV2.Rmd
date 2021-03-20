@@ -611,7 +611,7 @@ exp_av <- filtered_df %>%
             repo = mean(fecundity/mean_final_surface_area, na.rm = T), # size corrected
             repo_sd = sd(fecundity/mean_final_surface_area, na.rm = T),
             repo_se = repo_sd/sqrt(count)) %>%  
-   dplyr::select(c(1,2,3,4,5,9, 10, 11,15,16,18)) 
+   dplyr::select(c(1,2,3,4,5,9, 10, 11,15,16,18)) # in general, it's not great coding practice, for reproducability to use these type of numbers - you also can't easily error check! so make sure to always use the names 
 
 #remove the NAs in inf
 exp_av <- filter(exp_av, inf != "NaN")
@@ -624,19 +624,19 @@ exp_av <- filter(exp_av, inf != "NaN")
 ```{r plot_of_feeding_averages, echo = FALSE}
 # plot using fr averages and se
 
-(ggplot()+
-    geom_point(data = exp_av, mapping = aes(x = Spore_level, y = fr, fill = as.factor(Spore_level)),
-               size = 5, pch = 21)+
-    scale_fill_manual(values = c("darkmagenta", "darkcyan", "darkorange"))+
-    geom_errorbar(data = exp_av, mapping = aes(x = Spore_level, 
-                                           ymin = fr - se_fr,
-                                           ymax = fr + se_fr),
-                  width = 0.2)+
-    facet_grid(.~Genotype)+
-    theme_classic()+
-    scale_x_continuous(breaks = c(0, 150, 300), limits = c(-20, 320))+
-    theme(panel.border = element_rect(color = "black", fill = "NA", size = 0.5))+
-    labs(x = "Exposure spore level", y = "Foraging Rate At Exposure"))
+# (ggplot()+
+#     geom_point(data = exp_av, mapping = aes(x = Spore_level, y = fr, fill = as.factor(Spore_level)),
+#                size = 5, pch = 21)+
+#     scale_fill_manual(values = c("darkmagenta", "darkcyan", "darkorange"))+
+#     geom_errorbar(data = exp_av, mapping = aes(x = Spore_level, 
+#                                            ymin = fr - se_fr,
+#                                            ymax = fr + se_fr),
+#                   width = 0.2)+
+#     facet_grid(.~Genotype)+
+#     theme_classic()+
+#     scale_x_continuous(breaks = c(0, 150, 300), limits = c(-20, 320))+
+#     theme(panel.border = element_rect(color = "black", fill = "NA", size = 0.5))+
+#     labs(x = "Exposure spore level", y = "Foraging Rate At Exposure"))
 
 
 # plot plot using size corrected averages and se
@@ -649,7 +649,7 @@ Feed <- ggplot()+
                                            ymin = sc_fr - se_sc_fr,
                                            ymax = sc_fr + se_sc_fr),
                   width = 0.2)+
-     geom_point(data = exp_av, mapping = aes(x = Spore_level, y = sc_fr, fill = as.factor(Spore_level)),
+    geom_point(data = exp_av, mapping = aes(x = Spore_level, y = sc_fr, fill = as.factor(Spore_level)),
                size = 5, pch = 21)+
     scale_fill_manual(values = c("darkcyan", "darkmagenta", "darkorange"))+
     facet_grid(.~Genotype)+
@@ -673,7 +673,7 @@ infection <- animal_mean %>%
             sd = sd(inf, na.rm = T), #sd infected
             count = length(inf), # count per genotype*spore level
             se = sd/sqrt(count)) %>%#se of infected 
-  dplyr::select(c(1,2,3,6))
+  dplyr::select(c(1,2,3,6)) # in general, it's not great coding practice, for reproducability to use these type of numbers - you also can't easily error check! so make sure to always use the names 
 
 # make figure
 
