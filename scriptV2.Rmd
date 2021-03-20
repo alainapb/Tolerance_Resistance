@@ -596,25 +596,26 @@ anova(feed_spore, test ="Chi")
 ```{r calculate_treatment_averages, echo = FALSE}
 ##find averages and se for each Genotype * Spore_level
 exp_av <- filtered_df %>%
-  group_by(Genotype, Spore_level, inf) %>%
-  summarise(fr = mean(mean_feeding_rate, na.rm = T), #average feeding rate
+  arrange(Genotype, Spore_level, Animal, inf) %>%
+  filter(inf!= "NaN") %>% 
+  group_by(Genotype, Spore_level) %>%
+  mutate(n_obs = n()) %>%
+  mutate(fr = mean(mean_feeding_rate, na.rm = T), #average feeding rate
             sc_fr = mean(mean_feeding_rate/mean_surface_area, na.rm = T), #average size corrected feeding rate 
             sd_fr = sd(mean_feeding_rate, na.rm = T), #sd feeding rate
-            sd_sc_fr = sd(sc_fr, na.rm = T), # sd size corrected feeding rate
-            count = length(mean_feeding_rate), # 
-            se_fr = sd_fr/sqrt(count), #se of feeding rate
-            se_sc_fr = sd_sc_fr/sqrt(count), # se of size corrected feeding rate
+            sd_sc_fr = sd(mean_feeding_rate/mean_surface_area, na.rm = T), # sd size corrected feeding rate
+            se_fr = sd_fr/sqrt(n()), #se of feeding rate
+            se_sc_fr = sd_sc_fr/sqrt(n()),
             spores = mean(spores_ul/mean_final_surface_area, na.rm = T), # average spores_ul - size-corrected
             spore_count = length(spores_ul), na.rm = T, # count of infected animals
             spore_sd = sd(spores_ul/mean_final_surface_area, na.rm = T), # sd of spores_ul
             spore_se = spore_sd/sqrt(spore_count), # se of spores_ul
             repo = mean(fecundity/mean_final_surface_area, na.rm = T), # size corrected
             repo_sd = sd(fecundity/mean_final_surface_area, na.rm = T),
-            repo_se = repo_sd/sqrt(count)) %>%  
-   dplyr::select(c(1,2,3,4,5,9, 10, 11,15,16,18)) # in general, it's not great coding practice, for reproducability to use these type of numbers - you also can't easily error check! so make sure to always use the names 
-
-#remove the NAs in inf
-exp_av <- filter(exp_av, inf != "NaN")
+            repo_se = repo_sd/sqrt(n())) %>%  
+  select(Genotype, Spore_level, fr, sc_fr, sd_fr, sd_sc_fr, se_fr, se_sc_fr, spores, spore_count, spore_sd, spore_se, repo, repo_sd, repo_se) %>% # keep only the columns we want
+  distinct() %>% as.data.frame() # drop duplicates.
+exp_av  
 
 ```
 
