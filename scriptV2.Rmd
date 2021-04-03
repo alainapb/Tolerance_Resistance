@@ -707,16 +707,15 @@ PInf <- ggplot()+
 ```{r spore_yield_plot, echo = FALSE}
 
 Spore <- ggplot()+
-  geom_point(subset(exp_av, inf == 1), mapping = aes(x = Spore_level, y = spores, fill = as.factor(Spore_level)), 
+  geom_point(exp_av, mapping = aes(x = Spore_level, y = spores, fill = as.factor(Spore_level)), 
                size = 5, pch = 21)+
-  scale_fill_manual(values = c( "darkmagenta", "darkorange"))+
-  geom_errorbar(subset(exp_av, inf == 1), mapping = aes(x = Spore_level, 
+  geom_errorbar(exp_av, mapping = aes(x = Spore_level, 
                                            ymin = spores-spore_se,
                                            ymax = spores+spore_se),
                   width = 0.2)+
-  geom_point(subset(exp_av, inf == 1), mapping = aes(x = Spore_level, y = spores, fill = as.factor(Spore_level)), 
+  geom_point(exp_av, mapping = aes(x = Spore_level, y = spores, fill = as.factor(Spore_level)), 
                size = 5, pch = 21)+
-  scale_fill_manual(values = c( "darkmagenta", "darkorange")) +
+  scale_fill_manual(values = c("darkcyan", "darkmagenta", "darkorange")) +
   facet_grid(.~Genotype)+
     theme_classic()+
     scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
@@ -763,6 +762,7 @@ Repo <- ggplot()+
 
 
 ```{r Figure_1, echo = FALSE}
+library(patchwork)
 Feed / PInf / Spore / Repo
 
 ggsave("Figures/figure_1.png", width = 5, height = 8)
@@ -1359,7 +1359,43 @@ animal_mean %>%
           axis.ticks.x=element_line(color="black", size = .5))
 
 
-#average clutch size or r
+
+###Figure 2
+
+filtered_df %>%
+  #filter(Spore_level != 0) %>%
+  filter(mean_feeding_rate < .4) %>%
+  ggplot(mapping = aes(x=mean_feeding_rate, y = spores_ul/mean_final_surface_area, color= Genotype))+
+  geom_point(aes(shape = as.factor(Spore_level)), show.legend = FALSE)+
+  geom_smooth(method = "lm", alpha = .2, show.legend = FALSE)+
+  scale_y_continuous(limits=c(-15,80))+
+  scale_color_brewer(palette = "Set2")+
+  labs(x= "Foraging rate (ml/hr)", y = "Spore yield \n (spores/ul/body size)")+
+  theme_bw()+
+  theme(panel.border = element_rect(color="black", fill="NA", size=1),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5)) ->fig2a
+
+all_po %>%
+  filter(Spore_level > 0) %>%
+  ggplot(mapping = aes(x=cor_delta_po, y = sc_spores, color= Genotype))+
+  geom_point(aes(shape= as.factor(Spore_level)), show.legend = FALSE)+
+  geom_smooth(method = "lm", alpha = .2)+
+  scale_y_continuous(limits=c(-15,80))+
+  scale_color_brewer(palette = "Set2")+
+  labs(x= "Active Phenoloxidase", y = "Spore yield \n (spores/ul/body size)")+
+  theme_bw()+
+    theme(panel.border = element_rect(color="black", fill="NA", size=1),
+          axis.title.x=element_text(color="black", size = 17),
+          axis.title.y=element_text(color="black", size = 17),
+          axis.text.x=element_text(color="black", size = 12),
+          axis.text.y=element_text(color="black", size = 12),
+          axis.ticks.x=element_line(color="black", size = .5)) ->fig2b
+
+fig2a + fig2b
 
 ```
 
