@@ -1,6 +1,6 @@
 # Tolerance_Resitance
 
-Experiment Run by APB and JLH, assisted by RV and KA (undergraduates)
+Experiment Run by Alaina Pfenning-Butterworth and Jessica Hite assisted by Rachel Vetter and KA (undergraduates)
 
 7 hour exposure assays (M. bicuspidata) run at 3 spore levels ( 0, 150, 300 spores/ml) with 4 D. dentifera genotypes (A'45, Midland 252, Midland 281, Standard)
 
