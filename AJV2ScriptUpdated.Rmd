@@ -9,6 +9,10 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+#### R Version 1.4.1103 © 2009-2021 RStudio, PBC ; As of 8 April 2021 No new updates ####
+
+
 rm(list = ls())
 library(tidyverse)
 
@@ -16,6 +20,19 @@ library(tidyverse)
 
 ```
 
+
+```{r PlotTheme}
+  singlefigtheme <- theme_classic() + theme(axis.title.x = element_text(size = 18, face = "bold"),
+                       axis.title.y = element_text(size = 18, face = "bold"),
+                       axis.text.x = element_text(size = 14),
+                       axis.text.y = element_text(size = 14))
+
+  multifigtheme<- singlefigtheme + theme(axis.title.x = element_blank(),
+                                      axis.text.x = element_blank())
+
+  col3 <- c("#563caa","#563caa","#90aa3c", "#3caa56")
+
+```
 
 
 
@@ -38,7 +55,7 @@ head(life)
 
 #merge data together
 all.data.joined <- data %>% 
-  left_join(life, by=c("Genotype", "Spore_level", "Animal", "Infected_Uninfected", "Sex")) %>%
+  left_join(life, by = c("Genotype", "Spore_level", "Animal", "Infected_Uninfected", "Sex")) %>%
   mutate(Individual_ID = paste(Genotype, 
                                Spore_level, 
                                Animal, 
@@ -50,13 +67,9 @@ names(all.data.joined)
 # You can either use select and type the columns you want to keep, or you can use # a minus before the column name to delete it and leave the others.
 #removing unnecessary columns. also, you can use select in pipelines
 
-# drops <- c("Sex.y", "Length_Day_7", "Length_Day_20", "DOB", "Total.Offspring")
-# all.data.joined <-all.data.joined[ , !(names(all.data.joined) %in% drops)]
-
 all.data.joined <- all.data.joined %>% 
-  select(-c( "Length_Day_7", "Length_Day_20", "DOB", "Total Offspring"))
+  dplyr::select(-c( "Length_Day_7", "Length_Day_20", "DOB", "Total_Offspring"))
 
-# colnames(all.data.joined)<-c("Genotype", "Spore_level", "Plate", "Animal", "Sex", "Technical_Replicate", "Fluorometry_Reading", "Length_mm", "Size_mm2", "Final_length_mm", "Final_Size_mm2", "Growth_mm2", "Infected_Uninfected", "Susceptible", "Infected", "Spores_ul", "Total_Fecundity", "Control_Number", "Control_Technical_Replicate", "Control_Fluor_Reading", "USE_Control_Fluor_Reading", "Plate_Control_Numeric", "Time.till.death.days", "Censured", "Growth_mm", "Age_1st_clutch", "Indivdual_ID")
 
 #instead of using subset, better use filter from tidyverse
 ##Remove males from dataframe
@@ -160,7 +173,7 @@ avg_po1
 
 #### Means of the controls  - these means for each treatment (i.e., plate_control) are then used in the calculation below ####
  
-#in this case, it is better to use a summarise instead than a mutate and a distinct. You will get the same result, but code is much cleaner
+#in this case, it is better to use a summarise instead than a mutate and distinct. You will get the same result, but code is much cleaner
 
 
 summary_df <- all.female %>% 
@@ -174,7 +187,7 @@ summary_df <- all.female %>%
 # all.female$Control_mean <- map[as.character(all.female$Plate)]
 # all.female$Control_mean
 
-all.female <- all.female %>% 
+all.female <- all.female %>%
   left_join(summary_df, by = c("Plate" = "Plate_Control"))
 
 v <- 10 
@@ -202,17 +215,19 @@ animal_mean <- all.female %>%
             mean_final_surface_area = mean(Final_Size_mm2, na.rm = TRUE),
             mean_growth_length = mean(Total_Growth, na.rm = TRUE),
             mean_feeding_rate = mean(fr_sw, na.rm = TRUE),
+            ss_fr = mean_feeding_rate/mean_final_surface_area,
             susc = mean(Susceptible, na.rm = TRUE),
             inf = mean(Infected, na.rm = TRUE),
             censured = mean(Censured, na.rm = TRUE),
             spores_ul = mean(Spores_ul, na.rm = TRUE),
             fecundity = mean(Total_Fecundity, na.rm = TRUE),
+            survival = mean(Time till death_days, na.rm = TRUE),
             age_clutch_1 = mean(Age_1st_clutch, na.rm = TRUE))
 animal_mean
 
-a1 <- as.data.frame(animal_mean, na.rm = T)
-head(a1)
-a1.data <- write.csv(a1, "MeansMLE.csv")  ## export file to excel spreadsheet
+# a1 <- as.data.frame(animal_mean, na.rm = T)
+# head(a1)
+# a1.data <- write.csv(a1, "MeansMLE.csv")  ## export file to excel spreadsheet
 
 
 
@@ -246,14 +261,115 @@ filtered_df
 ```
 
 
+```{r}
+
+filtered_df2 <-  filtered_df %>% 
+  dplyr::group_by(Genotype, Spore_level) %>%
+  mutate(n_obs = n()) %>% 
+  summarise(pinf = (inf/n_obs), na.rm = TRUE) %>% 
+  distinct() %>% as.data.frame()
+
+
+```
+
+
+```{r}
+
+# Proportion infected
+ Pinf <- ggplot(filtered_df2, aes(x = Spore_level, color = as.factor(Spore_level),  y = pinf))+
+  stat_summary(fun.data = mean_se, size = 2,
+               alpha = 0.5, position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
+    singlefigtheme+
+    scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
+    scale_shape(guide = "none")+
+    facet_wrap(.~Genotype, nrow = 1)+
+    ylab("Proportion infected") + xlab("")+
+    theme(axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          legend.position = c(0.5, 0.9), legend.direction = "horizontal", 
+          strip.text.x = element_text(size = 12, face = "bold"))
+Pinf
+
+
+
+# Feeding rate - size specific (see Appendix for analyses illustrating links between body size and feeding rates)
+  Pfeed <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, y = ss_fr))+
+    stat_summary(fun.data = mean_se, size = 2, alpha = 0.5, position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
+    #scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56", "continuous"), name = "Spore level") +
+    singlefigtheme+
+    ylab("Size-specific feeding rate (unites)") + xlab("")+
+    facet_wrap(~Genotype, nrow = 1)+
+    theme(axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          legend.position = "none",
+          strip.text.x = element_blank())
+
+  Pfeed
+  
+  
+# Longevity/survival  
+  Psurv <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, shape = Genotype, y = age_at_death))+
+    stat_summary(fun.data  = mean_se, size = 2, alpha = 0.5,
+                 position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
+    scale_color_manual(values = wes_palette("GrandBudapest2", 6, type = "continuous"))+
+    singlefigtheme+
+    facet_wrap(~Genotype, nrow = 1)+
+    ylab("Survival (days post infection)") + xlab(" ")+
+    theme(legend.position = "none", strip.text.x = element_blank())  
+  Psurv
+    
+  # Growth
+    Pgrow <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, shape = Genotype, y = log(TotMass)))+
+    stat_summary(fun.data  = mean_se, size = 2, alpha = 0.5,
+                 position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
+    scale_color_manual(values = wes_palette("GrandBudapest2", 6, type = "continuous"))+
+    singlefigtheme+
+    facet_wrap(~Genotype, nrow = 1)+
+    ylab("Growth (change in size + add units)") + xlab("")+
+    theme(legend.position = "none", strip.text.x = element_blank())
+ 
+    # We might want to calculate r here...so that we account for longevity and day of first reproduction
+    # Fecundity - size-specific (see Appendix for analyses illustrating links between body size and fecundity) 
+    Pbirth <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, shape = Genotype, y = (fecundity/mean_final_surface_area)))+
+    stat_summary(fun.data  = mean_se, size = 2, alpha = 0.5,
+                 position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
+    scale_color_manual(values = wes_palette("GrandBudapest2", 6, type = "continuous"))+
+    singlefigtheme+
+    facet_wrap(~Genotype, nrow = 1)+
+    ylab("Fecundity (units)") + xlab("")+
+    theme(legend.position = "none", strip.text.x = element_blank())
+ 
+   
+    # Spore Yield - Size specific (see Appendix for the analyses on the relationship between body size and spore yield)
+    Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, shape = Genotype, y = spores_ul/mean_final_surface_area))+
+    stat_summary(fun.data  = mean_se, size = 2, alpha = 0.5,
+                 position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
+    scale_color_manual(values = wes_palette("GrandBudapest2", 6, type = "continuous"))+
+    singlefigtheme+
+    facet_wrap(~Genotype, nrow = 1)+
+    ylab("Size-corrected spore yield (units)") + xlab("Pathogen density (units)")+
+    theme(legend.position = "none", strip.text.x = element_blank())
+ 
+        
+  # Put the plots together
+  RTPlot1 <- plot_grid(Pinf, Pfeed, Psurv, Pgrow, Pbirth, Pspores, nrow = 6, align = "v")
+  RTPlot1
+  ggsave("RTPlot1.png", RTPlot1, height = 10, width = 12, dpi = 600)
+
+```
+
+
+
 ```{r  spore yield and final size (surface area), echo = FALSE}
-# here you have some Nan in the spores_ul column of filtered_df dataframe. 
-# Is it expected? or they are coming from an error somewhere earlier in the 
 # code? In addition, this is down to personal preferences, but I think it is always best separate the dplyr pipeline from the ggplot pipeline, it gives a much cleaner look and it makes easier to spot errors. I commented the grouping line (274) as it is pointless. for ggplot, it doesn't make a difference if a dataframe is grouped or not. I did the same in all the other plotting chunks up to line 433
 
 filtered_df 
-  #filter(exposure > 0) %>%
-
   ggplot(filtered_df)+
   geom_point(aes(y = spores_ul,  x = mean_final_surface_area))+
   geom_point(aes(y =  spores_ul, x = mean_final_surface_area, color = as.factor(Spore_level)))+
@@ -271,12 +387,8 @@ filtered_df
 
 ```{r  spore yield and final size (length), echo = FALSE}
 
-# here you have some Nan in the spores_ul column of filtered_df dataframe. 
-# Is it expected? or they are coming from an error somewhere earlier in the code? the same is true for all following plots up to line 426
 
 filtered_df 
-  #filter(exposure > 0) %>%
-
 ggplot(filtered_df)+
   geom_point(aes(y = spores_ul,  x = mean_final_length))+
   geom_point(aes(y =  spores_ul, x = mean_final_length, color = as.factor(Spore_level)))+
@@ -294,7 +406,6 @@ ggplot(filtered_df)+
 ```{r  fecundity and final size (length), echo = FALSE}
 
 filtered_df 
-  #filter(exposure > 0) %>%
 ggplot(filtered_df)+
   geom_point(aes(y = fecundity,  x = mean_final_surface_area))+
   geom_point(aes(y =  fecundity, x = mean_final_surface_area, color = as.factor(Spore_level)))+
@@ -314,8 +425,6 @@ ggplot(filtered_df)+
 
 ```{r  feeding rate and initial size (sa), echo = FALSE}
 filtered_df %>%
-  #filter(exposure > 0) %>%
-
 ggplot(filtered_df)+
   geom_point(aes(y = mean_feeding_rate,  x = mean_surface_area))+
   geom_point(aes(y =  mean_feeding_rate, x = mean_surface_area, color = as.factor(Spore_level)))+
@@ -333,8 +442,6 @@ ggplot(filtered_df)+
 
 ```{r  feeding rate and initial size (length), echo = FALSE}
 filtered_df 
-  #filter(exposure > 0) %>%
-
 ggplot(filtered_df)+
   geom_point(aes(y = mean_feeding_rate,  x = mean_init_length))+
   geom_point(aes(y =  mean_feeding_rate, x = mean_init_length, color = as.factor(Spore_level)))+
@@ -351,8 +458,6 @@ ggplot(filtered_df)+
 
 ```{r  feeding rate and spore yield (sa) 1, echo = FALSE}
 filtered_df 
-  #filter(exposure > 0) %>%
-
  ggplot(filtered_df)+
   geom_point(aes(x = mean_feeding_rate,  y = spores_ul/mean_final_surface_area))+
   geom_point(aes(x =  mean_feeding_rate, y = spores_ul/mean_final_surface_area, color = as.factor(Spore_level)))+
@@ -369,8 +474,6 @@ filtered_df
 
 ```{r  feeding rate and spore yield (sa) 2, echo = FALSE}
 filtered_df #%>%
-  #filter(exposure > 0) %>%
-
 ggplot(filtered_df)+
   geom_point(aes(y = mean_feeding_rate,  x = Spore_level))+
   geom_point(aes(y =  mean_feeding_rate, x = Spore_level, color = as.factor(Spore_level)))+
@@ -386,8 +489,6 @@ ggplot(filtered_df)+
 
 ```{r  feeding rate and spore yield (sa) 3, echo = FALSE}
 filtered_df #%>%
-  #filter(exposure > 0) %>%
-
 ggplot(filtered_df)+
   geom_point(aes(y = mean_feeding_rate/mean_surface_area,  x = Spore_level))+
   geom_point(aes(y =  mean_feeding_rate/mean_surface_area, x = Spore_level, color = as.factor(Spore_level)))+
