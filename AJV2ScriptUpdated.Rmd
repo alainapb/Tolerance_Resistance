@@ -22,10 +22,10 @@ library(tidyverse)
 
 
 ```{r PlotTheme}
-  singlefigtheme <- theme_classic() + theme(axis.title.x = element_text(size = 18, face = "bold"),
-                       axis.title.y = element_text(size = 18, face = "bold"),
-                       axis.text.x = element_text(size = 14),
-                       axis.text.y = element_text(size = 14))
+  singlefigtheme <- theme_classic() + theme(axis.title.x = element_text(size = 12, face = "bold"),
+                       axis.title.y = element_text(size = 12),
+                       axis.text.x = element_text(size = 12),
+                       axis.text.y = element_text(size = 12))
 
   multifigtheme<- singlefigtheme + theme(axis.title.x = element_blank(),
                                       axis.text.x = element_blank())
@@ -221,7 +221,7 @@ animal_mean <- all.female %>%
             censured = mean(Censured, na.rm = TRUE),
             spores_ul = mean(Spores_ul, na.rm = TRUE),
             fecundity = mean(Total_Fecundity, na.rm = TRUE),
-            survival = mean(Time till death_days, na.rm = TRUE),
+            survival = mean(TimeTillDeathDays, na.rm = TRUE),
             age_clutch_1 = mean(Age_1st_clutch, na.rm = TRUE))
 animal_mean
 
@@ -232,6 +232,19 @@ animal_mean
 
 
 ```
+
+```{r}
+
+filtered_df2 <-  animal_mean %>% 
+  dplyr::group_by(Genotype, Spore_level) %>%
+  mutate(n_obs = n()) %>% 
+  summarise(pinf = (inf/n_obs), na.rm = TRUE) %>% 
+  distinct() %>% as.data.frame()
+
+
+```
+
+
 
 
 ```{r remove exposed but uninfected animals, include = TRUE}
@@ -261,27 +274,19 @@ filtered_df
 ```
 
 
-```{r}
 
-filtered_df2 <-  filtered_df %>% 
-  dplyr::group_by(Genotype, Spore_level) %>%
-  mutate(n_obs = n()) %>% 
-  summarise(pinf = (inf/n_obs), na.rm = TRUE) %>% 
-  distinct() %>% as.data.frame()
-
-
-```
 
 
 ```{r}
 
 # Proportion infected
+# Need the mean and SE here...mean # infected/genotype and spore level +/- the standard error
  Pinf <- ggplot(filtered_df2, aes(x = Spore_level, color = as.factor(Spore_level),  y = pinf))+
-  stat_summary(fun.data = mean_se, size = 2,
-               alpha = 0.5, position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
+  stat_summary(fun.data = mean_se, size = 1,
+               alpha = 1.75, position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.40)+
     singlefigtheme+
-    scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
+    scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     scale_shape(guide = "none")+
     facet_wrap(.~Genotype, nrow = 1)+
     ylab("Proportion infected") + xlab("")+
@@ -289,15 +294,16 @@ filtered_df2 <-  filtered_df %>%
           axis.text.x = element_blank(),
           legend.position = c(0.5, 0.9), legend.direction = "horizontal", 
           strip.text.x = element_text(size = 12, face = "bold"))
-Pinf
 
+ Pinf
 
 
 # Feeding rate - size specific (see Appendix for analyses illustrating links between body size and feeding rates)
+# Need this color scheme to work  
   Pfeed <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, y = ss_fr))+
-    stat_summary(fun.data = mean_se, size = 2, alpha = 0.5, position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
-    #scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56", "continuous"), name = "Spore level") +
+    stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.40)+
+   # scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     ylab("Size-specific feeding rate (unites)") + xlab("")+
     facet_wrap(~Genotype, nrow = 1)+
@@ -305,57 +311,61 @@ Pinf
           axis.text.x = element_blank(),
           legend.position = "none",
           strip.text.x = element_blank())
-
-  Pfeed
-  
+ Pfeed
   
 # Longevity/survival  
-  Psurv <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, shape = Genotype, y = age_at_death))+
-    stat_summary(fun.data  = mean_se, size = 2, alpha = 0.5,
+# Need this color scheme to work
+  Psurv <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level,  y = survival))+
+    stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
-    scale_color_manual(values = wes_palette("GrandBudapest2", 6, type = "continuous"))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.40)+
+    #scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56", "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
     ylab("Survival (days post infection)") + xlab(" ")+
     theme(legend.position = "none", strip.text.x = element_blank())  
-  Psurv
-    
+
+
   # Growth
-    Pgrow <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, shape = Genotype, y = log(TotMass)))+
-    stat_summary(fun.data  = mean_se, size = 2, alpha = 0.5,
+  # Need this color scheme to work
+    Pgrow <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level,  y = mean_growth_length))+
+    stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
-    scale_color_manual(values = wes_palette("GrandBudapest2", 6, type = "continuous"))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.40)+
+    #scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56", "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
     ylab("Growth (change in size + add units)") + xlab("")+
     theme(legend.position = "none", strip.text.x = element_blank())
  
+    
+    
     # We might want to calculate r here...so that we account for longevity and day of first reproduction
     # Fecundity - size-specific (see Appendix for analyses illustrating links between body size and fecundity) 
-    Pbirth <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, shape = Genotype, y = (fecundity/mean_final_surface_area)))+
-    stat_summary(fun.data  = mean_se, size = 2, alpha = 0.5,
+    # Need this color scheme to work
+    Pbirth <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level,  y = (fecundity/mean_final_surface_area)))+
+    stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
-    scale_color_manual(values = wes_palette("GrandBudapest2", 6, type = "continuous"))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.40)+
+    #scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56", "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
     ylab("Fecundity (units)") + xlab("")+
     theme(legend.position = "none", strip.text.x = element_blank())
- 
+
    
     # Spore Yield - Size specific (see Appendix for the analyses on the relationship between body size and spore yield)
-    Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, shape = Genotype, y = spores_ul/mean_final_surface_area))+
-    stat_summary(fun.data  = mean_se, size = 2, alpha = 0.5,
+    # Need this color scheme to work
+    Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level,  y = spores_ul/mean_final_surface_area))+
+    stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.7)+
-    scale_color_manual(values = wes_palette("GrandBudapest2", 6, type = "continuous"))+
+    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.45)+
+    #scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56", "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
     ylab("Size-corrected spore yield (units)") + xlab("Pathogen density (units)")+
     theme(legend.position = "none", strip.text.x = element_blank())
- 
+
         
   # Put the plots together
   RTPlot1 <- plot_grid(Pinf, Pfeed, Psurv, Pgrow, Pbirth, Pspores, nrow = 6, align = "v")
@@ -364,6 +374,60 @@ Pinf
 
 ```
 
+
+
+```{r cost of fitness - ignoring body size and longevity}
+
+#### Calculate the percentage decrease/increase in FECUNDITY across INDIVIDUALS in each genotype, spore treatment ####
+# b0 is a per-genotype average
+# take each individual in spore treatments 150 and 300 and subtract their birth rate from b0. 
+
+#create matrix that will store the values
+deltaB_values <- matrix(nrow = length(unique(animal_mean$Genotype)), ncol = 4)
+
+#index outside the loop
+index <- 1
+
+for (id in unique(animal_mean$Genotype)) {
+  #use & to create a subset based on more than one conditions
+  #& means and, | means or in R logic
+  data0 <- subset(animal_mean, Spore_level == 0 & Genotype == id)
+  b0  <- (data0$fecundity)
+  data75 <- subset(animal_mean, Spore_level == 150 & Genotype == id)
+  b150  <- (data75$fecundity)
+  data300 <- subset(animal_mean, Spore_level == 300 & Genotype == id)
+  b300    <- (data200$fecundity)
+  deltab150   <-  ((b150 -b0)/b0)*100
+  deltab300  <-  ((b300 - b0)/b0)*100
+  #add data to empty matrix
+  deltaB_values[index, 1] <- id
+  #if value is empty use NA else input the value
+  deltaB_values[index, 2] <- ifelse(is_empty(deltab150), NA, deltab150)
+  deltaB_values[index, 3] <- ifelse(is_empty(deltab300), NA, deltab300)
+  
+  index <- index + 1
+}
+
+deltaB_values <- as.data.frame(deltaB_values)
+deltaB_values
+names(deltaB_values) <-c("Genotype","150","300")
+deltaB_values
+```
+
+
+```{r net reproductive rate}
+# This section needs to calculate the net reproductive rate for a Genotype/spore combination is obtained by multiplying the proportion of females surviving to each age (lx) by the average number of offspring produced at each age (mx) and then adding the products from all the age groups: R0 = Σlxmx. 
+
+# In other words:
+
+# 1)  calculate the number of animals alive at each age (this can be gleaned from 'survival') 
+# 2)  calculate the % of surviving in each age class (i.e., # alive on day 7/# alive on day 1) "lx"
+# 3)  calculate the mean number of eggs produced each day (fecundity on day x) "mx"
+# 4)  add the products from all age groups: R0 = Σlxmx. (again, per genotype and spore level)
+
+
+
+```
 
 
 ```{r  spore yield and final size (surface area), echo = FALSE}
