@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 rm(list = ls())
 library(tidyverse)
-
+library(grid)
 ####Color Theme####
 
 ```
@@ -27,10 +27,13 @@ library(tidyverse)
                        axis.text.x = element_text(size = 12),
                        axis.text.y = element_text(size = 12))
 
-  multifigtheme<- singlefigtheme + theme(axis.title.x = element_blank(),
-                                      axis.text.x = element_blank())
+  multifigtheme <- singlefigtheme + theme(axis.title.x = element_blank(),
+                                      axis.text.x = element_blank(),
+                                      legend.key = element_rect(colour = NA, fill = NA))
 
   col3 <- c("#563caa","#563caa","#90aa3c", "#3caa56")
+  
+
 
 ```
 
@@ -205,7 +208,7 @@ all.female$fr_sw <- log(k) * (v/t)
 #calculate mean fluor reading per animal (keep rate > 0)
 animal_mean <- all.female %>%
   #keep fr_sw values > 0
-  filter(fr_sw > 0) %>%
+  filter(fr_sw > 0.01) %>%
   #group based on these variables
   group_by(Genotype, Spore_level, Animal, Plate, Control_mean) %>%
   #means based on groups above
@@ -235,12 +238,19 @@ animal_mean
 
 ```{r}
 
-filtered_df2 <-  animal_mean %>% 
-  dplyr::group_by(Genotype, Spore_level) %>%
-  mutate(n_obs = n()) %>% 
-  summarise(pinf = (inf/n_obs), na.rm = TRUE) %>% 
-  distinct() %>% as.data.frame()
 
+# spore.names <- as.character(unique(animal_mean$Spore_level))
+# spore.names
+# 
+# filtered_df2 <-  animal_mean %>% 
+#   dplyr::group_by(Genotype, Spore_level, Animal) %>%
+#   mutate(n_susc = sum(suc, na.rm = TRUE),
+#     
+#   )
+#   summarise(mean_pinf = mean(inf/(inf + susc)), na.rm = TRUE)  %>% 
+#   select(Genotype, Spore_level,  pinf) %>% 
+#   distinct() %>% as.data.frame()
+# filtered_df2
 
 ```
 
@@ -255,14 +265,14 @@ filtered_df2 <-  animal_mean %>%
 
 
 infected <- animal_mean %>%
-  filter(Spore_level > 0 & inf > 0)
+filter(Spore_level > 0 & inf > 0)
 infected
 names(infected)
 head(infected)
 
 
 unexposed <- animal_mean %>%
-  filter(Spore_level == 0)
+filter(Spore_level == 0)
 unexposed
 names(unexposed)
 head(unexposed)
@@ -274,103 +284,155 @@ filtered_df
 ```
 
 
-
-
-
 ```{r}
 
 # Proportion infected
 # Need the mean and SE here...mean # infected/genotype and spore level +/- the standard error
- Pinf <- ggplot(filtered_df2, aes(x = Spore_level, color = as.factor(Spore_level),  y = pinf))+
+#animal_mean_inf <- animal_mean %>% filter(Spore_level > 0) 
+
+
+
+  genolabel <- c("Genotype 1", "Genotype 2", "Genotype 3", "Genotype 4") 
+  names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
+
+
+## I need the rest of the data to be plotted here...the geom_point command. 
+## Under Genotype 3  
+Pinf <- ggplot(animal_mean, aes(x = Spore_level,  y = 100*inf/(inf + susc) , color = as.factor(Spore_level)))+
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
+  #geom_rect(xmin = 4.5, xmax = Inf, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha  = 0.30)+
   stat_summary(fun.data = mean_se, size = 1,
                alpha = 1.75, position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.40)+
-    singlefigtheme+
+    #geom_point(position = position_dodge(0.2), size = 4, alpha = 0.30)+
+    geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+
     scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
-    scale_shape(guide = "none")+
-    facet_wrap(.~Genotype, nrow = 1)+
-    ylab("Proportion infected") + xlab("")+
-    theme(axis.title.x = element_blank(),
-          axis.text.x = element_blank(),
-          legend.position = c(0.5, 0.9), legend.direction = "horizontal", 
-          strip.text.x = element_text(size = 12, face = "bold"))
-
- Pinf
-
-
-# Feeding rate - size specific (see Appendix for analyses illustrating links between body size and feeding rates)
-# Need this color scheme to work  
-  Pfeed <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level, y = ss_fr))+
-    stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.40)+
-   # scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
-    ylab("Size-specific feeding rate (unites)") + xlab("")+
-    facet_wrap(~Genotype, nrow = 1)+
-    theme(axis.title.x = element_blank(),
-          axis.text.x = element_blank(),
-          legend.position = "none",
-          strip.text.x = element_blank())
- Pfeed
-  
+    facet_wrap(.~Genotype, nrow = 1, labeller = labeller(Genotype = genolabel))+
+    ylab("% Infected") + xlab("")+
+    theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.25),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        #legend.position = c(0.5, 0.9), legend.direction = "horizontal", 
+        legend.position = "none",
+        strip.text.x = element_text(size = 12, face = "bold"))
+Pinf
+
+
+
 # Longevity/survival  
-# Need this color scheme to work
-  Psurv <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level,  y = survival))+
+  Psurv <- ggplot(animal_mean, aes(x = Spore_level, y = survival, color = as.factor(Spore_level)))+
+    geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
     stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.40)+
-    #scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56", "continuous"), name = "Spore level") +
+    #geom_point(position = position_dodge(0.2), size = 4, alpha = 0.30)+
+    geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+
+    scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
     ylab("Survival (days post infection)") + xlab(" ")+
-    theme(legend.position = "none", strip.text.x = element_blank())  
+    theme(panel.spacing = unit(1.05, "lines"),
+      panel.border = element_rect(color = "black", fill = NA, size = 0.25),
+      legend.position = "none", strip.text.x = element_blank()) 
+    # Add striped background
+  Psurv
+  
 
+  
+library(cowplot)        
+  # Put the plots together
+  RTPlot1 <- plot_grid(Pinf, Psurv, nrow = 2, align = "v")
+  RTPlot1
+  ggsave("RTPlot1.png", RTPlot1, height = 10, width = 12, dpi = 600)
+
+
+
+``` 
+
+
+```{r}
+
+ genolabel <- c("Genotype 1", "Genotype 2", "Genotype 3", "Genotype 4") 
+  names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
+
+
+
+# Feeding rate - size specific (see Appendix for analyses illustrating links between body size and feeding rates)
+Pfeed <- ggplot(animal_mean, aes(x = Spore_level, color = as.factor(Spore_level), y = ss_fr))+
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
+  stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2))+
+  geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30)+
+  scale_y_continuous(limits = c(0, 0.10)) +
+  #geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+ 
+  scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
+    singlefigtheme+
+    ylab("Size-specific feeding rate (unites)") + xlab("")+
+    facet_wrap(.~Genotype, nrow = 1, labeller = labeller(Genotype = genolabel))+
+    theme(panel.spacing = unit(1.05, "lines"),
+          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          legend.position = "none",
+          #legend.position = c(0.95,0.75),
+          legend.title = element_text(size = 10),
+          legend.text = element_text(size = 8),
+          strip.text.x = element_text(size = 12, face = "bold"))
+Pfeed
+  
 
   # Growth
-  # Need this color scheme to work
-    Pgrow <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level,  y = mean_growth_length))+
+Pgrow <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y = mean_growth_length))+
+    geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
     stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.40)+
-    #scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56", "continuous"), name = "Spore level") +
+    geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30)+
+    scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
     ylab("Growth (change in size + add units)") + xlab("")+
-    theme(legend.position = "none", strip.text.x = element_blank())
- 
+    theme(panel.spacing = unit(1.05, "lines"),
+          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+          legend.position = "none", strip.text.x = element_blank())
+Pgrow
     
     
     # We might want to calculate r here...so that we account for longevity and day of first reproduction
     # Fecundity - size-specific (see Appendix for analyses illustrating links between body size and fecundity) 
-    # Need this color scheme to work
-    Pbirth <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level,  y = (fecundity/mean_final_surface_area)))+
+Pbirth <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y = (fecundity/mean_final_surface_area)))+
+    geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
     stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.40)+
-    #scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56", "continuous"), name = "Spore level") +
+    geom_point(position = position_dodge(0.2), size = 3, alpha = 0.40)+
+    scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
     ylab("Fecundity (units)") + xlab("")+
-    theme(legend.position = "none", strip.text.x = element_blank())
-
+    theme(panel.spacing = unit(1.05, "lines"),
+          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+          legend.position = "none", strip.text.x = element_blank())
+Pbirth
    
+
     # Spore Yield - Size specific (see Appendix for the analyses on the relationship between body size and spore yield)
     # Need this color scheme to work
-    Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = Spore_level,  y = spores_ul/mean_final_surface_area))+
+Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y =    spores_ul/mean_final_surface_area))+
+    geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
     stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
-    geom_point(position = position_dodge(0.2), size = 4, alpha = 0.45)+
-    #scale_color_manual(values = c("#563caa", "#aa3c90", "#90aa3c", "#3caa56", "continuous"), name = "Spore level") +
+    geom_point(position = position_dodge(0.2), size = 3, alpha = 0.45)+
+    scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
     ylab("Size-corrected spore yield (units)") + xlab("Pathogen density (units)")+
-    theme(legend.position = "none", strip.text.x = element_blank())
+    theme(panel.spacing = unit(1.05, "lines"),
+          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+          legend.position = "none", strip.text.x = element_blank())
+ Pspores
 
-        
+library(cowplot)        
   # Put the plots together
-  RTPlot1 <- plot_grid(Pinf, Pfeed, Psurv, Pgrow, Pbirth, Pspores, nrow = 6, align = "v")
-  RTPlot1
-  ggsave("RTPlot1.png", RTPlot1, height = 10, width = 12, dpi = 600)
+  RTPlot2 <- plot_grid( Pfeed,Pgrow, Pbirth, Pspores, nrow = 4, align = "v")
+  RTPlot2
+  ggsave("RTPlot2.png", RTPlot2, height = 10, width = 12, dpi = 600)
 
 ```
 
@@ -382,36 +444,6 @@ filtered_df
 # b0 is a per-genotype average
 # take each individual in spore treatments 150 and 300 and subtract their birth rate from b0. 
 
-#create matrix that will store the values
-deltaB_values <- matrix(nrow = length(unique(animal_mean$Genotype)), ncol = 4)
-
-#index outside the loop
-index <- 1
-
-for (id in unique(animal_mean$Genotype)) {
-  #use & to create a subset based on more than one conditions
-  #& means and, | means or in R logic
-  data0 <- subset(animal_mean, Spore_level == 0 & Genotype == id)
-  b0  <- (data0$fecundity)
-  data75 <- subset(animal_mean, Spore_level == 150 & Genotype == id)
-  b150  <- (data75$fecundity)
-  data300 <- subset(animal_mean, Spore_level == 300 & Genotype == id)
-  b300    <- (data200$fecundity)
-  deltab150   <-  ((b150 -b0)/b0)*100
-  deltab300  <-  ((b300 - b0)/b0)*100
-  #add data to empty matrix
-  deltaB_values[index, 1] <- id
-  #if value is empty use NA else input the value
-  deltaB_values[index, 2] <- ifelse(is_empty(deltab150), NA, deltab150)
-  deltaB_values[index, 3] <- ifelse(is_empty(deltab300), NA, deltab300)
-  
-  index <- index + 1
-}
-
-deltaB_values <- as.data.frame(deltaB_values)
-deltaB_values
-names(deltaB_values) <-c("Genotype","150","300")
-deltaB_values
 ```
 
 
@@ -897,71 +929,11 @@ exp_av
 
 
 
-```{r percent_infected_plot, echo = FALSE}
-#find the percent infected per Genotype and Spore level
-
-infection <- animal_mean %>%
-  group_by(Genotype, Spore_level) %>%
-  summarise(infected = mean(inf, na.rm = T), #average infected
-            sd = sd(inf, na.rm = T), #sd infected
-            count = length(inf), # count per genotype*spore level
-            se = sd/sqrt(count)) %>%#se of infected 
-  dplyr::select(c(1,2,3,6))
-
-# make figure
-
-
-PInf <- ggplot()+
-    geom_point(infection, mapping = aes(x = Spore_level, y = infected, fill = as.factor(Spore_level)),
-               size = 5, pch = 21)+
-    scale_fill_manual(values = c("darkcyan", "darkmagenta", "darkorange"))+
-    geom_errorbar(infection, mapping = aes(x = Spore_level, 
-                                           ymin = infected - se,
-                                           ymax = infected + se),
-                  width = 0.2)+
-    geom_point(infection, mapping = aes(x = Spore_level, y = infected, fill = as.factor(Spore_level)),
-               size = 5, pch = 21)+
-  facet_grid(.~Genotype)+
-    theme_classic()+
-    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
-    theme(panel.border   = element_rect(color = "black", fill = "NA", size = 0.5),
-          axis.title.x   = element_blank(),
-          axis.text.x    = element_blank(),
-          axis.ticks.x   = element_blank(),
-          strip.text.x   = element_blank())+
-    labs(y = "Percent Infected")
-PInf
-```
 
 
 
 
-```{r spore_yield_plot, echo = FALSE}
 
-#here we get an error, because you are trying to subset the exp_av dataframe based on the inf column, but the inf column is not in the exp_av dataframe! we forgot to add the inf in the dplyr::select above. 
-
-Spore <- ggplot()+
-  geom_point(subset(exp_av, inf == 1), mapping = aes(x = Spore_level, y = spores, fill = as.factor(Spore_level)), 
-               size = 5, pch = 21)+
-  scale_fill_manual(values = c( "darkmagenta", "darkorange"))+
-  geom_errorbar(subset(exp_av, inf == 1), mapping = aes(x = Spore_level, 
-                                           ymin = spores-spore_se,
-                                           ymax = spores+spore_se),
-                  width = 0.2)+
-  geom_point(subset(exp_av, inf == 1), mapping = aes(x = Spore_level, y = spores, fill = as.factor(Spore_level)), 
-               size = 5, pch = 21)+
-  scale_fill_manual(values = c( "darkmagenta", "darkorange")) +
-  facet_grid(.~Genotype)+
-    theme_classic()+
-    scale_x_continuous(breaks = c(0,150,300), limits = c(-20, 320))+
-    theme(panel.border = element_rect(color = "black", fill = "NA", size = 0.5),
-          axis.title.x = element_blank(),
-          axis.text.x   = element_blank(),
-          axis.ticks.x  = element_blank(),
-          strip.text.x  = element_blank())
-    #labs(x = "Exposure spore level", y = "Spore Yield")
-Spore
-```
 
 
 
