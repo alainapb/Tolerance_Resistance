@@ -450,10 +450,6 @@ test # remove highest value > 0.4049
  genolabel <- c("Genotype 1", "Genotype 2", "Genotype 3", "Genotype 4") 
   names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
 
-
-  
-  
-
 # Feeding rate - size specific (see Appendix for analyses illustrating links between body size and feeding rates)
 Pfeed <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level), y = ss_fr))+
   geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
@@ -558,11 +554,11 @@ library(cowplot)
 
 ```{r}
 
-library(mgcv)
-library(gam)
+
 
  genolabel <- c("Genotype 1", "Genotype 2", "Genotype 3", "Genotype 4") 
   names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
+
 
 
 
