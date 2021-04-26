@@ -130,14 +130,15 @@ clone.names
 # you delete the rows where those na are, or you change those na into proper NA. 
 # I chose the second solution, at line 154/155 (transformed into numeric first, because it was a factor)
 
-# here in this result the average you calculate is the same for each sample across all genotypes. basically, you get only 3 different averages. Are you sure you are grouping by the right variables? My suspect is that you want to group by genotype, spores and sample and then calculate the mean. I have left commented code to do that below. 
+
 avg_po1 <- all_po_data %>% 
+  filter(Genotype != "Control") %>% 
   mutate(Abs = ifelse(Abs == "na", NA, Abs)) %>% 
   mutate(Abs = as.numeric(Abs)) %>% 
   arrange(Genotype, Spores, Time, Replicate, Sample) %>% 
-  group_by(Sample) %>%
+  group_by(Genotype, Spores) %>%
   mutate(mean_po = mean(Abs, na.rm = T)) %>% 
-  select(Genotype, Spores, Sample, mean_po) %>% 
+  select(Genotype, Spores, mean_po) %>% 
   distinct() %>% as.data.frame()
 avg_po1 
 
@@ -146,28 +147,67 @@ avg_po1
 #### CALCULATE DELTA PO ####
 
 # # subset the data to only include time "4.5"
-# final <- subset(all_po_data, all_po_data$Time == "4.5")
-# final$Abs
+final <- subset(all_po_data, all_po_data$Time == "4.5")
+final$Abs
 # # 
 # # ### Now look at the change in abs which equivalent to the amount of active PO produced ####
 # # #ADD CHANGE IN ABS (ACTIVE PHENOLOXIDASE)
-# initial <- subset(all_po_data, all_po_data$Time == 1)
-# initial$Abs
+initial <- subset(all_po_data, all_po_data$Time == 1)
+initial$Abs
 # # 
 # 
 # # if you run this, remember to convert factors to numeric (both final$abs and
 # # intiial$abs are factors, you have to convert them to numeric), like
-# final$Abs <- as.numeric(final$Abs)
-# initial$Abs <- as.numeric(initial$Abs)
+final$Abs <- as.numeric(final$Abs)
+initial$Abs <- as.numeric(initial$Abs)
 
 # #calculating the change in absorbance
-# delta_po <- final$Abs - initial$Abs
+delta_po <- final$Abs - initial$Abs
 # 
 # # multiplying by 1000 to get "activity units" (Mucklow & Ebert, 2003)
-# delta_po <- delta_po*1000
+delta_po <- delta_po*1000
 # # adding the delta_po values back to dataframe
-# initial$delta_po <- delta_po
+initial$delta_po <- delta_po
 # 
+
+
+#### LOAD PO DATA ####
+##adding AJ2 active phenoloxidase data
+## updated 3/10/21
+all_po_data <- read_csv("data/AJ2_PO_for_R.csv")
+names(all_po_data)
+head(all_po_data)
+
+
+#### Now look at the change in abs which equivalent to the amount of active PO produced ####
+#find initial absorbances
+initial <- subset(all_po_data, all_po_data$Time == 1)
+
+#find final absorbances
+po4.5 <- subset(all_po_data, all_po_data$Time == "4.5")
+#calculate the change in absorbance
+
+delta_po <- po4.5$Abs - initial$Abs
+# multiplying by 1000 to get "activity units" (Mucklow & Ebert, 2003)
+delta_po <- delta_po*1000
+# adding the delta_po values back to dataframe
+initial$delta_po <- delta_po
+#average across replicates and divide by the number of individuals in the sample
+po <- initial %>%
+  group_by(Genotype, Spores, Sample, Prop_inf, No_in_sample) %>%
+  summarise(delta_po = mean(delta_po))
+
+po$cor_delta_po <- po$delta_po/po$No_in_sample
+
+po <- subset(po, Genotype != "Control")
+
+names(po)[2]<-"Spore_level"
+
+
+
+
+
+
 
 ```
 
@@ -179,19 +219,18 @@ avg_po1
 #in this case, it is better to use a summarise instead than a mutate and distinct. You will get the same result, but code is much cleaner
 
 
+
+
 summary_df <- all.female %>% 
    group_by(Plate_Control) %>%
-  summarise(Control_mean = mean(USE_Control_Flour_Reading, na.rm = T))
+   summarise(Control_mean = mean(USE_Control_Flour_Reading, na.rm = T))
 
 
-# here instead of set names, we can use a left_join 
-# match control mean with plate treatment
-# map = setNames(summary_df$Control_mean,summary_df$Plate_Control)
-# all.female$Control_mean <- map[as.character(all.female$Plate)]
-# all.female$Control_mean
 
+#match control mean with plate treatment
 all.female <- all.female %>%
   left_join(summary_df, by = c("Plate" = "Plate_Control"))
+
 
 v <- 10 
 ## volume, mL
@@ -205,10 +244,11 @@ k
 ##calculate feeding rate (Sarnelle and Wilson)
 all.female$fr_sw <- log(k) * (v/t)
 
+
 #calculate mean fluor reading per animal (keep rate > 0)
 animal_mean <- all.female %>%
-  #keep fr_sw values > 0
-  filter(fr_sw > 0.01) %>%
+  filter(fr_sw > 0.009) %>%
+  filter(fr_sw < 0.4 ) %>%
   #group based on these variables
   group_by(Genotype, Spore_level, Animal, Plate, Control_mean) %>%
   #means based on groups above
@@ -218,7 +258,7 @@ animal_mean <- all.female %>%
             mean_final_surface_area = mean(Final_Size_mm2, na.rm = TRUE),
             mean_growth_length = mean(Total_Growth, na.rm = TRUE),
             mean_feeding_rate = mean(fr_sw, na.rm = TRUE),
-            ss_fr = mean_feeding_rate/mean_final_surface_area,
+            ss_fr = mean_feeding_rate/mean_surface_area,
             susc = mean(Susceptible, na.rm = TRUE),
             inf = mean(Infected, na.rm = TRUE),
             censured = mean(Censured, na.rm = TRUE),
@@ -228,31 +268,9 @@ animal_mean <- all.female %>%
             age_clutch_1 = mean(Age_1st_clutch, na.rm = TRUE))
 animal_mean
 
-# a1 <- as.data.frame(animal_mean, na.rm = T)
-# head(a1)
-# a1.data <- write.csv(a1, "MeansMLE.csv")  ## export file to excel spreadsheet
-
-
-
 ```
 
-```{r}
 
-
-# spore.names <- as.character(unique(animal_mean$Spore_level))
-# spore.names
-# 
-# filtered_df2 <-  animal_mean %>% 
-#   dplyr::group_by(Genotype, Spore_level, Animal) %>%
-#   mutate(n_susc = sum(suc, na.rm = TRUE),
-#     
-#   )
-#   summarise(mean_pinf = mean(inf/(inf + susc)), na.rm = TRUE)  %>% 
-#   select(Genotype, Spore_level,  pinf) %>% 
-#   distinct() %>% as.data.frame()
-# filtered_df2
-
-```
 
 
 
@@ -288,7 +306,7 @@ filtered_df
 
 # Proportion infected
 # Need the mean and SE here...mean # infected/genotype and spore level +/- the standard error
-#animal_mean_inf <- animal_mean %>% filter(Spore_level > 0) 
+# animal_mean_inf <- animal_mean %>% filter(Spore_level > 0) 
 
 
 
@@ -296,11 +314,8 @@ filtered_df
   names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
 
 
-## I need the rest of the data to be plotted here...the geom_point command. 
-## Under Genotype 3  
 Pinf <- ggplot(animal_mean, aes(x = Spore_level,  y = 100*inf/(inf + susc) , color = as.factor(Spore_level)))+
   geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
-  #geom_rect(xmin = 4.5, xmax = Inf, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha  = 0.30)+
   stat_summary(fun.data = mean_se, size = 1,
                alpha = 1.75, position = position_dodge(0.2))+
     #geom_point(position = position_dodge(0.2), size = 4, alpha = 0.30)+
@@ -350,7 +365,201 @@ library(cowplot)
 ``` 
 
 
+
+
+```{r outlier detection for feeding rate data}
+
+animal_mean %>%
+  group_by(Genotype, Spore_level) %>%
+  ggplot()+
+  geom_boxplot(aes(x = Spore_level, y = mean_feeding_rate, color = as.factor(Spore_level)))+
+  geom_point(aes(x = Spore_level, y = mean_feeding_rate, color = as.factor(Spore_level)))+
+  labs (x = "", y = "") +
+  theme_bw()+
+  theme(axis.text = element_text(size = 16, color = "black"),
+        axis.title = element_text(size = 24, color = "black"),
+        legend.title = element_blank()) +
+  facet_wrap(~ Genotype)
+
+```
+
+
+```{r tests for normality for feeding rate data}
+
+
+# Step 1: Test for normality
+animal_mean %>%
+  group_by(Genotype, Spore_level) %>%
+  ggplot()+
+  geom_histogram(aes(x = mean_feeding_rate)) +
+  labs (x = "", y = "") +
+  theme_bw()+
+  theme(axis.text = element_text(size = 16, color = "black"),
+        axis.title = element_text(size = 24, color = "black"),
+        legend.title = element_blank()) +
+  facet_wrap(~ Genotype + as.factor(Spore_level))
+
+
+# Shapiro-Wilk normality test: null = data follow normal distribution. 
+# p-value > 0.05 = do not reject null = data follow normal distribution
+# p-value < 0.05 = reject teh null = data do not follow normal distribution.
+
+library(outliers)
+
+all.female$fr_sw
+geno1 <- with(all.female, subset(all.female, Genotype == "A45"))
+n1 <- with(geno1, shapiro.test(geno1$fr_sw))
+n1 <- with(geno1, shapiro.test(geno1$fr_sw))
+n1 # normal
+boxplot.stats(geno1$fr_sw)
+test <- grubbs.test(geno1$fr_sw)
+test # remove highest value > 0.46
+
+
+geno2 <- with(all.female, subset(all.female, Genotype == "Midland 252"))
+n2 <- with(geno2, shapiro.test(geno2$fr_sw))
+n2 # not normal
+boxplot.stats(geno2$fr_sw)
+test <- grubbs.test(geno2$fr_sw)
+test # remove highest value > 0.769
+
+
+geno3 <- with(all.female, subset(all.female, Genotype == "Midland 281"))
+n3 <- with(geno3, shapiro.test(geno3$fr_sw))
+n3 <- with(geno3, shapiro.test(geno3$fr_sw))
+n3 # normal
+boxplot.stats(geno3$fr_sw)
+test <- grubbs.test(geno3$fr_sw)
+test # 
+
+
+geno4 <- with(all.female, subset(all.female, Genotype == "Standard"))
+n4 <- with(geno4, shapiro.test(geno4$fr_sw))
+n4 # normal
+boxplot.stats(geno4$fr_sw)
+test <- grubbs.test(geno4$fr_sw)
+test # remove highest value > 0.4049
+
+
+ 
+
+```
+
 ```{r}
+
+ genolabel <- c("Genotype 1", "Genotype 2", "Genotype 3", "Genotype 4") 
+  names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
+
+
+  
+  
+
+# Feeding rate - size specific (see Appendix for analyses illustrating links between body size and feeding rates)
+Pfeed <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level), y = ss_fr))+
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
+  stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2))+
+  geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30)+
+  #geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+ 
+  scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
+    singlefigtheme+
+    ylab("Size-specific feeding rate (units)") + xlab("")+
+    facet_wrap(.~Genotype, nrow = 1, labeller = labeller(Genotype = genolabel))+
+    theme(panel.spacing = unit(1.05, "lines"),
+          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          legend.position = "none",
+          #legend.position = c(0.95,0.75),
+          legend.title = element_text(size = 10),
+          legend.text = element_text(size = 8),
+          strip.text.x = element_text(size = 12, face = "bold"))
+Pfeed
+
+
+avg_po1 
+
+
+# Phenoloxidase
+Pphenol <- ggplot(po, aes(x = Spore_level, color = as.factor(Spore_level), y = delta_po))+
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
+  stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2))+
+  geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30)+
+  #geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+ 
+  scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
+    singlefigtheme+
+    ylab("Active/Delta phenoloxidase (units)") + xlab("")+
+    facet_wrap(.~Genotype, nrow = 1, labeller = labeller(Genotype = genolabel))+
+   theme(panel.spacing = unit(1.05, "lines"),
+          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+          legend.position = "none", strip.text.x = element_blank())
+Pphenol
+
+  
+
+  # Growth
+Pgrow <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y = mean_growth_length))+
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
+    stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
+                 position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30)+
+    scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
+    singlefigtheme+
+    facet_wrap(~Genotype, nrow = 1)+
+    ylab("Growth (change in size + add units)") + xlab("")+
+    theme(panel.spacing = unit(1.05, "lines"),
+          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+          legend.position = "none", strip.text.x = element_blank())
+Pgrow
+    
+    
+    # We might want to calculate r here...so that we account for longevity and day of first reproduction
+    # Fecundity - size-specific (see Appendix for analyses illustrating links between body size and fecundity) 
+Pbirth <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y = (fecundity/mean_final_surface_area)))+
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
+    stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
+                 position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 3, alpha = 0.40)+
+    scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
+    singlefigtheme+
+    facet_wrap(~Genotype, nrow = 1)+
+    ylab("Fecundity (units)") + xlab("")+
+    theme(panel.spacing = unit(1.05, "lines"),
+          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+          legend.position = "none", strip.text.x = element_blank())
+Pbirth
+   
+
+
+    # Spore Yield - Size specific (see Appendix for the analyses on the relationship between body size and spore yield)
+Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y =    spores_ul/mean_final_surface_area))+
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
+    stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
+                 position = position_dodge(0.2))+
+    geom_point(position = position_dodge(0.2), size = 3, alpha = 0.45)+
+    geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+ 
+    scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
+    singlefigtheme+
+    facet_wrap(~Genotype, nrow = 1)+
+    ylab("Size-corrected spore yield (units)") + xlab("Pathogen density (units)")+
+    theme(panel.spacing = unit(1.05, "lines"),
+          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+          legend.position = "none", strip.text.x = element_blank())
+ Pspores
+
+library(cowplot)        
+  # Put the plots together
+  RTPlot2 <- plot_grid( Pfeed, Pphenol, Pgrow, Pbirth, Pspores, nrow = 5, align = "v")
+  RTPlot2
+  ggsave("RTPlot2.png", RTPlot2, height = 10, width = 12, dpi = 600)
+
+```
+
+
+
+
+```{r}
+
+library(mgcv)
+library(gam)
 
  genolabel <- c("Genotype 1", "Genotype 2", "Genotype 3", "Genotype 4") 
   names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
@@ -358,11 +567,10 @@ library(cowplot)
 
 
 # Feeding rate - size specific (see Appendix for analyses illustrating links between body size and feeding rates)
-Pfeed <- ggplot(animal_mean, aes(x = Spore_level, color = as.factor(Spore_level), y = ss_fr))+
+Pfeed <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level), y = ss_fr))+
   geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
   stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2))+
   geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30)+
-  scale_y_continuous(limits = c(0, 0.10)) +
   #geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+ 
   scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
@@ -381,7 +589,7 @@ Pfeed
 
   # Growth
 Pgrow <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y = mean_growth_length))+
-    geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
     stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
     geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30)+
@@ -398,7 +606,7 @@ Pgrow
     # We might want to calculate r here...so that we account for longevity and day of first reproduction
     # Fecundity - size-specific (see Appendix for analyses illustrating links between body size and fecundity) 
 Pbirth <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y = (fecundity/mean_final_surface_area)))+
-    geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
     stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
     geom_point(position = position_dodge(0.2), size = 3, alpha = 0.40)+
@@ -412,13 +620,14 @@ Pbirth <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level
 Pbirth
    
 
+
     # Spore Yield - Size specific (see Appendix for the analyses on the relationship between body size and spore yield)
-    # Need this color scheme to work
 Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y =    spores_ul/mean_final_surface_area))+
-    geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
     stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
     geom_point(position = position_dodge(0.2), size = 3, alpha = 0.45)+
+    geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+ 
     scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
@@ -434,7 +643,11 @@ library(cowplot)
   RTPlot2
   ggsave("RTPlot2.png", RTPlot2, height = 10, width = 12, dpi = 600)
 
+
+
 ```
+
+
 
 
 
