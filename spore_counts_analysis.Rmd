@@ -1,0 +1,199 @@
+---
+title: "Spore production"
+author: "David Nguyen"
+date: "April 30, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+```
+
+# load data
+
+```{r}
+names_cols <- read_excel("data/Flow_Cytometry_Spore_Counts_20190710 adjusted gating 7-2 expt corrected.xls",
+           sheet = 2, n_max = 1) %>% names()
+raw_dat <- 
+  read_excel("data/Flow_Cytometry_Spore_Counts_20190710 adjusted gating 7-2 expt corrected.xls",
+           sheet = 2, skip = 1, col_names = FALSE) %>% 
+  slice(-1) # drop first obs. Just has ALGAE in all cols???
+names(raw_dat) <- names_cols
+spore_dat <- raw_dat %>% select(Genotype, Spore_level = `Spore level`, Animal = `Animal Replicate`, Spore_count = `Spores | Count`)
+rm(names_cols, raw_dat)
+
+# load full data set
+all_female <- read_csv("data/all_female.csv")
+# match Genotype naming conventions
+spore_dat <- spore_dat %>% mutate(Genotype = case_when(Genotype == "M252" ~ "Midland 252",
+                                          Genotype == "A45" ~ "A45",
+                                          Genotype == "M281" ~ "Midland 281",
+                                          Genotype == "STD" ~ "Standard"),
+                                  Spore_level = as.numeric(Spore_level),
+                                  Animal = as.numeric(Animal))
+# join spore count data to full data set
+all_female <- left_join(all_female, spore_dat, by = c("Genotype", "Spore_level", "Animal"))
+# remove duplicate observations
+# note, I'm not using feeding rates here, so we don't need both measurements
+all_female <- filter(all_female, Technical_Replicate == 1)
+
+# set true zeros for Spore_count (e.g., animals that were exposed but uninfected have a zero spore count)
+all_female <- all_female %>% mutate(Spore_count = ifelse(Susceptible == 1 & Infected == 0, 0, Spore_count))
+
+all_female %>% group_by(Susceptible, Infected) %>%
+  summarise(n_na = sum(is.na(Spore_count)))
+
+all_female %>%
+  filter(is.na(Spore_count)) %>%
+  select(Genotype, Spore_level, Animal, Infected_Uninfected, Susceptible, Infected)
+```
+
+Grab only genotype, spore level, animal number (some missing?), and spore count.
+
+### which animal numbers are missing?
+
+```{r}
+spore_dat %>%
+  group_by(Genotype, Spore_level) %>%
+  summarise(missing = sum(is.na(Animal)),
+            nobs = n()) %>%
+  knitr::kable()
+```
+
+Not sure why there are 0 level spores. Are they controls of some sort? Anyways, not sure why there are missing labels  for animal number.
+
+# Distribution of spore counts
+
+```{r}
+# spore_dat %>%
+#   ggplot() + 
+#   geom_violin(aes(x = factor(Spore_level), y = Spore_count, fill = Genotype), alpha = 0.3) +
+#   geom_jitter(aes(x = factor(Spore_level), y = Spore_count, col = Genotype)) +
+#   facet_wrap(~Genotype, scales = "free_y")
+all_female %>%
+  filter(Spore_level > 0) %>%
+  ggplot() + 
+  geom_violin(aes(x = factor(Spore_level), y = Spore_count, fill = Genotype), alpha = 0.3) +
+  geom_jitter(aes(x = factor(Spore_level), y = Spore_count, col = Genotype)) +
+  facet_wrap(~Genotype, scales = "free_y")
+```
+
+Signs of zero inflation for A45, M252, M281. Possible for STD too. The distributions of A45 and STD are very broad, I'm worried there will still be overdispersion after acounting for zero inflation. May need to include random effect at observation level.
+
+# Fit regular poisson and NB regression
+
+```{r}
+reg_data <-  filter(all_female, Spore_level > 0) #filter(spore_dat, Spore_level > 0)
+fit.pois <- glm(Spore_count ~ Genotype*factor(Spore_level), family = poisson(), data = reg_data)
+fit.nb <- MASS::glm.nb(Spore_count ~ Genotype*factor(Spore_level), data = reg_data)
+
+# compare predictions to observed means
+pred_dat <- expand_grid(Genotype = unique(spore_dat$Genotype)[1:4],
+                        Spore_level = c("150","300"))
+pred_dat$pois <- predict(fit.pois, newdata = pred_dat, type = "response")
+pred_dat$nb <- predict(fit.nb, newdata = pred_dat, type = "response")
+
+obs_dat <- reg_data %>% group_by(Genotype, Spore_level) %>% 
+  summarise(obs_mean = mean(Spore_count, na.rm = TRUE)) %>%
+  mutate(Spore_level = factor(Spore_level))
+inner_join(pred_dat, obs_dat, by = c("Genotype", "Spore_level"))  %>% knitr::kable(digits = 2)
+```
+
+It makes sense that these match, because the MLE of the means for Poisson and NB will just be the group sample means.
+
+### Compare observed vs predicted zeros
+
+```{r}
+zero_count <- reg_data %>% 
+  group_by(Genotype, Spore_level) %>% 
+  summarise(zeros = sum(Spore_count == 0, na.rm = TRUE),
+            nobs = n()) %>%
+  mutate(Spore_level = factor(Spore_level)) # so I can join it with pred_dat
+zero_count <- inner_join(zero_count, pred_dat , by = c("Genotype", "Spore_level"))
+
+zero_count <-
+  zero_count %>% 
+  mutate(pois_zeros = dpois(0, lambda = pois),
+         pois_zeros = nobs * pois_zeros,
+         nb_zeros = dnbinom(0, mu = nb, size = fit.nb$theta),
+         nb_zeros = nobs * nb_zeros)
+```
+
+```{r}
+zero_count %>% select(-pois, - nb) %>% knitr::kable()
+```
+
+The poisson model always dramatically underestimates the number of zeros. The negative binomial model does a better job of predicting close to the observed number of zeros for each Genotype x spore level: too high for A45, about right for the M252, too low for midland 281, and too high for standard.
+
+```{r}
+zero_count %>% summarise(zeros = sum(zeros),
+                         pois_zeros = sum(pois_zeros),
+                         nb_zeros = sum(nb_zeros)) %>% knitr::kable()
+```
+
+Poisson model is still bad. For the NB model the number of zeros is low for midland 281 but high for all other genotypes.
+
+```{r}
+zero_count %>% ungroup() %>% summarise(zeros = sum(zeros),
+                         pois_zeros = sum(pois_zeros),
+                         nb_zeros = sum(nb_zeros)) %>% knitr::kable()
+```
+
+The total number of zeros predicted in the data set by the nb model is pretty good. But, it has issues with some genotypes. For instance, it predicts too many zeros for standard, but not enough zeros for M281. I think these issues would be resolved by using a zero-inflated or hurdle model.
+
+But, before we can fit ZI or hurdle models, we need to figure out how to get the infection logistic regression model working.
+
+# zero-inflated and hurdle models
+
+```{r}
+library(pscl)
+# poisson
+hurdle_poisson_full <-   hurdle(Spore_count ~ Genotype*factor(Spore_level) | Genotype + factor(Spore_level), 
+       dist = "poisson", zero.dist = "binomial", data = reg_data)
+zi_poisson_full <- zeroinfl(Spore_count ~ Genotype*factor(Spore_level) | Genotype + factor(Spore_level), 
+       dist = "poisson", link = "logit", data = reg_data)
+hurdle_poisson_main <-   hurdle(Spore_count ~ Genotype + factor(Spore_level) | Genotype + factor(Spore_level), 
+       dist = "poisson", zero.dist = "binomial", data = reg_data)
+zi_poisson_main <- zeroinfl(Spore_count ~ Genotype + factor(Spore_level) | Genotype + factor(Spore_level), 
+       dist = "poisson", link = "logit", data = reg_data)
+# negative binomial
+hurdle_nb_full <-   hurdle(Spore_count ~ Genotype*factor(Spore_level) | Genotype + factor(Spore_level), 
+       dist = "negbin", zero.dist = "binomial", data = reg_data)
+zi_nb_full <- zeroinfl(Spore_count ~ Genotype*factor(Spore_level) | Genotype + factor(Spore_level), 
+       dist = "negbin", link = "logit", data = reg_data)
+hurdle_nb_main <-   hurdle(Spore_count ~ Genotype + factor(Spore_level) | Genotype + factor(Spore_level), 
+       dist = "negbin", zero.dist = "binomial", data = reg_data)
+zi_nb_main <- zeroinfl(Spore_count ~ Genotype + factor(Spore_level) | Genotype + factor(Spore_level), 
+       dist = "negbin", link = "logit", data = reg_data)
+
+summary(hurdle_poisson_full)
+summary(zi_poisson_full)
+summary(hurdle_poisson_main)
+summary(zi_poisson_main)
+```
+
+```{r}
+bbmle::AICtab(hurdle_poisson_full,zi_poisson_full,hurdle_poisson_main,zi_poisson_main,
+    hurdle_nb_full,zi_nb_full,hurdle_nb_main,zi_nb_main)
+```
+
+# bayesian zeroinflated model
+
+```{r}
+library(brms)
+```
+
+
+```{r}
+brm_zi_nb_main <- brm(Spore_count ~ Genotype + Spore_level, 
+                 data = all_female, family = zero_inflated_negbinomial())
+```
+
+```{r}
+summary(brm_zi_nb_main)
+plot(conditional_effects(brm_zi_nb_main), ask = FALSE)
+```
+
+Try using data augmentation prior (log F(m,m)). See Greenland.
