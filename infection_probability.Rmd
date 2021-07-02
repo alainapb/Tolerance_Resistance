@@ -42,6 +42,14 @@ female_rep1 %>%
 
 The only midland 281 that were infected also had anomolous feeding rate measurements and were dropped in AJ analyses. For now, I'll ignore the issue of feeding rates. Let's just fit a simple logistic regression model.
 
+```{r}
+summary_prevalence %>%
+  ggplot() +
+  geom_line(aes(x = Spore_level, y = prevalence, col = Genotype)) +
+  ylim(0,1)
+```
+
+
 # analysis with glm()
 
 ```{r}
@@ -79,6 +87,49 @@ tibble(terms = names(coef(mod.inf)),
 See that the estimates in the last row have increased once we adjusted the convergence settings. THis means the the first model we fit didn't actually converge despite not getting any warning messages. The issue here is that the MLE is not finite in these cases. This problem is known as (quasi-)seperation. There are two "standard" ways of dealing with this: Penalized likelihood estimation or Bayesian estimation.
 
 Let's try using penalized likelihood to estimate this model instead of maximum likelihood.
+
+But wait: how does this actually impact the inferences we draw?
+
+```{r warning = FALSE}
+# get 95% profile CI for the OR 
+exp(confint(mod.inf)) 
+exp(confint(mod.inf_check))
+```
+
+Yeah, the profile likelihood intervals for the odds ratios aren't great (look at the last row).
+
+
+```{r warning = FALSE}
+# get 95% profile CI for change in probability
+boot::inv.logit(exp(confint(mod.inf)))
+boot::inv.logit(exp(confint(mod.inf_check)))
+```
+
+These are the same. SO.... is this actually an issue?
+
+Maybe just dropping the (unimportant) spore level variable is adequate?
+
+```{r}
+mod.geno <- glm(Infected ~ Genotype, 
+               family = binomial, 
+               data = filter(female_rep1, Spore_level > 0))
+summary(mod.geno)
+```
+
+Looks good.
+
+```{r}
+mod.main <- glm(Infected ~ Genotype + factor(Spore_level), 
+               family = binomial, 
+               data = filter(female_rep1, Spore_level > 0))
+summary(mod.main)
+```
+
+```{r}
+car::Anova(mod.inf, test = "LR")
+```
+
+Welp, looks like the genotype only model is fine. So MLE will be fine.
 
 # Penalized likelihood estimation using logistf
 
