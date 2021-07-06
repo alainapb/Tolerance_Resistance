@@ -247,6 +247,12 @@ set.seed(123)
 brm_zi_nb_null <- readRDS("models/zi_nb_null.RData")
 ```
 
+```{r}
+rhat(brm_zi_nb_null)
+```
+
+all r-hat values close to 1 which suggests that chains converged.
+
 ```{r }
 summary(brm_zi_nb_null)
 plot(conditional_effects(brm_zi_nb_null), ask = FALSE)
@@ -254,5 +260,107 @@ plot(conditional_effects(brm_zi_nb_null), ask = FALSE)
 
 ```{r}
 plot(brm_zi_nb_null, ask = FALSE)
+```
+
+```{r}
+# fixed effects in model
+fixef(brm_zi_nb_null)
+```
+
+```{r}
+# get unconditional mean spore count = prob
+zi_nb_null_uncond_mean <- 
+  posterior_samples(brm_zi_nb_null) %>%
+  transmute(A45 = exp(b_Intercept) * (1 - boot::inv.logit(b_zi_Intercept)),
+         M252 = exp(b_Intercept) * (1 - boot::inv.logit(b_zi_Intercept + b_zi_GenotypeMidland252)),
+         M281 = exp(b_Intercept) * (1 - boot::inv.logit(b_zi_Intercept + b_zi_GenotypeMidland281)),
+         standard = exp(b_Intercept) * (1 - boot::inv.logit(b_zi_Intercept + b_zi_GenotypeStandard))
+         ) 
+# re-format to be long df
+zi_nb_null_uncond_mean_long <- 
+  zi_nb_null_uncond_mean %>%
+  pivot_longer(cols = everything(),names_to = "Genotype", values_to = "mean_spore")
+
+# get posterior mean and 95% CrI
+zi_nb_null_mean_summary <-
+  zi_nb_null_uncond_mean_long %>%
+  group_by(Genotype) %>%
+  summarise(mean = mean(mean_spore),
+            lwr = quantile(mean_spore, prob = 0.025),
+            upr = quantile(mean_spore, prob = 0.975))
+# output table of mean and CrI
+zi_nb_null_mean_summary %>%
+  knitr::kable(digits = 2)
+
+# plot unconditional genotype-specific mean spore load
+plot_zi_nb_null_mean <- zi_nb_null_uncond_mean_long %>%
+  ggplot(aes(x = factor(Genotype))) +
+  geom_violin(aes(y =mean_spore, fill = Genotype), alpha = 0.5) +
+  geom_point(data = zi_nb_null_mean_summary, aes(y = mean)) +
+  geom_errorbar(data = zi_nb_null_mean_summary, aes(ymin = lwr, ymax = upr), width = 0.2)
+
+plot_zi_nb_null_mean
+
+# make plot with observed data too
+obs_spore_mean <- all_female %>% group_by(Genotype) %>%
+  mutate(Genotype = case_when(Genotype == "A45" ~ "A45",
+                              Genotype == "Midland 252" ~ "M252",
+                              Genotype == "Midland 281" ~ "M281",
+                              Genotype == "Standard" ~ "standard")) %>%
+  summarise(mean = mean(Spore_count, na.rm = TRUE),
+            n = n())
+
+plot_zi_nb_null_mean + geom_point(data = obs_spore_mean, aes(x = factor(Genotype), y = mean, size = log(n))) +
+  labs(x = "Genotype",
+       y = "Mean spore count",
+       size = "log(sample size)")
+```
+
+
+To make inferences about differences between genotypes, lets compute the pairwise differences between each genotype and get the posterior distributions of the differences.
+
+```{r}
+col_diff<-function(df)
+{
+    dif_fn<-function(obj){return(obj[[1]]-obj[[2]])}
+    tmp_fn<-function(inp_row){unlist(combn(inp_row,2,FUN=dif_fn,simplify = FALSE))}
+    intres<-t(apply(df,1,tmp_fn))
+    colnames(intres)<-unlist(combn(colnames(df),2,simplify = FALSE,FUN=function(obj){paste(obj[[1]],obj[[2]],sep="-")}))
+    temp<-cbind(df, intres)
+    return(temp)
+
+}
+zi_nb_null_diff <- 
+  zi_nb_null_uncond_mean %>% col_diff() %>%
+  dplyr::select(-c("A45", "M252", "M281", "standard"))
+
+# reformat to be long
+zi_nb_null_diff_long <- 
+  zi_nb_null_diff %>%
+  pivot_longer(cols = everything(), names_to = "contrast", values_to = "difference")
+# get posterior mean and 95% CrI
+zi_nb_null_diff_summary <-
+  zi_nb_null_diff_long %>%
+  group_by(contrast) %>%
+  summarise(mean = mean(difference),
+            lwr = quantile(difference, 0.025),
+            upr = quantile(difference, 0.975))
+
+plot_zi_nb_null_diff <- zi_nb_null_diff_long %>%
+  ggplot(aes(x = factor(contrast))) +
+  geom_violin(aes(y =difference, fill = contrast), alpha = 0.5) +
+  geom_point(data = zi_nb_null_diff_summary, aes(y = mean)) +
+  geom_errorbar(data = zi_nb_null_diff_summary, aes(ymin = lwr, ymax = upr), width = 0.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", col = "red")
+  
+obs_spore_mean_diff <- obs_spore_mean %>% dplyr::select(-n) %>%
+  pivot_wider(names_from = "Genotype", values_from = "mean") %>%
+  col_diff() %>%
+  dplyr::select(-c("A45", "M252", "M281", "standard")) %>%
+  pivot_longer(cols = everything(), names_to = "contrast", values_to = "difference")
+  
+# difference between unconditional mean spore counts
+# red dot is observed difference in mean
+plot_zi_nb_null_diff + geom_point(data = obs_spore_mean_diff, aes(x = factor(contrast), y = difference), col = "red")
 ```
 
