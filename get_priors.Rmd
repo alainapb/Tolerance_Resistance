@@ -1,0 +1,113 @@
+---
+title: "Get priors for infection outcomes"
+author: "David Nguyen"
+date: "June 15, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# get priors from Strauss et al. 2019
+
+```{r}
+strauss <- read_csv("data/StraussProcB2019.csv")
+# summary(strauss)
+```
+
+* clone is the genotype
+* number is the replicate: 1:15
+* P0 is the parasite exposure level: 0, 75, 200, 393
+
+```{r}
+strauss_infection_summary <-
+  strauss %>%
+  group_by(clone, P0) %>%
+  filter(P0 > 0) %>%
+  filter(clone %in% c("A45", "Mid.252", "Mid.281")) %>%
+  summarise(infected = sum(infected, na.rm = TRUE),
+            n = n(),
+            prevalence = infected/n) %>%
+  mutate(clone = ifelse(clone == "Mid.252", "Midland_252", clone),
+         clone = ifelse(clone == "Mid.281", "Midland_281", clone)) %>%
+  select("Genotype" = clone, "Spore_level" = P0, infected, n, prevalence) %>%
+  add_column(study = "strauss")
+
+strauss_infection_summary%>%
+  knitr::kable(digits = 2)
+```
+
+AFAIK the Strauss data doesn't include the standard genotype.
+
+```{r}
+# load alaina's data from chapter 1 and other experiments
+library(readxl)
+alaina_ch1 <- read_xlsx(path = "data/AJ1_051019.xlsx",
+          sheet = "Life_table")
+
+# weird values
+# "Infected" == infected, "Exposed" == exposed but uninfected
+alaina_ch1 %>%
+  pull(`Control/Infected/Exposed`) %>%
+  unique()
+
+# summarise infection outcome by genotype and exposure level
+alaina_ch1_summary <- alaina_ch1 %>%
+  group_by(Genotype, Spore_level) %>%
+  filter(Spore_level > 0) %>%
+  mutate(infected = case_when((`Control/Infected/Exposed` == "Infected") ~ 1,
+                              (`Control/Infected/Exposed` %in% c("Uninfected", "Exposed", "uninfected")) ~ 0)) %>%
+  summarise(infected = sum(infected, na.rm = TRUE),
+            n = n(),
+            prevalence = infected/n) %>%
+    filter(Genotype %in% c("Mid 252", "Standard")) %>%
+  mutate(Genotype = ifelse(Genotype == "Mid 252", "Midland_252", Genotype)) %>%
+  add_column(study = "ch.1")
+
+# print summary table of infection outcomes
+alaina_ch1_summary %>%
+  knitr::kable(digits = 2)
+```
+
+```{r warning = FALSE}
+combined_300_600 <- read_xlsx("data/combined_300_600.xlsx")
+
+# no weird values in infected column
+combined_300_600 %>%
+  pull(`Infected?`) %>%
+  unique()
+
+# summarise infection by genotype and exposure level
+combined_300_600_summary <- 
+  combined_300_600 %>%
+  group_by(Genotype, Spores) %>%
+  filter(`Time treatment` == "rest",
+         Genotype %in% c("A45","Midland_281", "Standard")) %>%
+  summarise(infected = sum(`Infected?`, na.rm = TRUE),
+            n = n(),
+            prevalence = infected / n) %>%
+  add_column(study = "combined") %>%
+  rename("Spore_level" = Spores)
+  
+
+combined_300_600_summary %>%
+  knitr::kable(digits = 2)
+```
+
+```{r}
+all_summary <- bind_rows(strauss_infection_summary, alaina_ch1_summary, combined_300_600_summary)
+
+all_summary %>%
+  arrange(Genotype) %>%
+  knitr::kable(digits = 2)
+```
+
+```{r}
+all_summary %>%
+  ggplot() +
+  geom_point(aes(x = Spore_level, y = prevalence, col = study, shape = study, size = n)) +
+  facet_wrap(~Genotype)
+```
+

@@ -1,0 +1,295 @@
+---
+title: "infection outcomes"
+author: "David Nguyen"
+date: "April 30, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# Load data
+
+```{r}
+all.female <- read_csv("data/all_female.csv")
+female_rep1 <- all.female %>% filter(Technical_Replicate == 1)
+```
+
+
+all.female includes only female daphnia. I pulled only the first technical rep since I am not interested in feeding rates right now (Technical rep just refers to the two replicated measurements of feeding rate for each animal).
+
+# Infection probability 
+
+```{r}
+summary_prevalence <- 
+  female_rep1 %>%
+  filter(Spore_level > 0) %>%
+  group_by(Genotype, Spore_level) %>%
+  summarise(n_infected = sum(Infected, na.rm = TRUE),
+            n_at_risk = n(),
+            prevalence = n_infected / n_at_risk)
+summary_prevalence %>%  knitr::kable(digits = 2)
+```
+
+We can see that many of the Standard genotype gets infected and almost none of the Midland 281 are infected. The other two genotypes are in between. Although, interestingly enough, only the standard genotype has a higher sample prevelence at the highest exposure level, all other genotypes have the same or lower prevalence at the 300 level exposure.
+
+```{r}
+female_rep1 %>%
+  filter(Genotype == "Midland 281", Infected == 1) 
+```
+
+The only midland 281 that were infected also had anomolous feeding rate measurements and were dropped in AJ analyses. For now, I'll ignore the issue of feeding rates. Let's just fit a simple logistic regression model.
+
+```{r}
+summary_prevalence %>%
+  ggplot() +
+  geom_line(aes(x = Spore_level, y = prevalence, col = Genotype)) +
+  ylim(0,1)
+```
+
+
+# analysis with glm()
+
+```{r}
+mod.inf <- glm(Infected ~ Genotype*factor(Spore_level), 
+               family = binomial, 
+               data = filter(female_rep1, Spore_level > 0))
+summary(mod.inf)
+```
+
+Signs of model convergence issues: 
+
+* large number of Fisher Scoring iterations ("large" means in the teens)
+* The standard x 300 estimate is problematic. Large standard error relative to estimate.
+
+To confirm there is a problem with convergence, we can change the settings of glm() to use more stringent convergence criteria. If the coefficent estimate changes a lot, we will know that the previous model didn't actually converge despite the lack of warning.
+
+```{r}
+mod.inf_check <- glm(Infected ~ Genotype*factor(Spore_level), 
+                     family = binomial, data = 
+                       filter(female_rep1, Spore_level > 0), 
+                     # increase iterations to 50 and decrease tolerance
+                     control = list(maxit = 50, epsilon = 1e-16))
+summary(mod.inf_check)
+```
+
+Note that the number of iterations is larger than before. And see that we still have an issue with the estimate and standard error of standard x 300 interaction.
+
+```{r}
+tibble(terms = names(coef(mod.inf)),
+       default_conv = coef(mod.inf),
+       adjusted_conv = coef(mod.inf_check)) %>%
+  knitr::kable(digits = 2)
+```
+
+See that the estimates in the last row have increased once we adjusted the convergence settings. THis means the the first model we fit didn't actually converge despite not getting any warning messages. The issue here is that the MLE is not finite in these cases. This problem is known as (quasi-)seperation. There are two "standard" ways of dealing with this: Penalized likelihood estimation or Bayesian estimation.
+
+Let's try using penalized likelihood to estimate this model instead of maximum likelihood.
+
+But wait: how does this actually impact the inferences we draw?
+
+```{r warning = FALSE}
+# get 95% profile CI for the OR 
+exp(confint(mod.inf)) 
+exp(confint(mod.inf_check))
+```
+
+Yeah, the profile likelihood intervals for the odds ratios aren't great (look at the last row).
+
+
+```{r warning = FALSE}
+# get 95% profile CI for change in probability
+boot::inv.logit(exp(confint(mod.inf)))
+boot::inv.logit(exp(confint(mod.inf_check)))
+```
+
+These are the same. SO.... is this actually an issue?
+
+Maybe just dropping the (unimportant) spore level variable is adequate?
+
+```{r}
+mod.geno <- glm(Infected ~ Genotype, 
+               family = binomial, 
+               data = filter(female_rep1, Spore_level > 0))
+summary(mod.geno)
+```
+
+Looks good.
+
+```{r}
+mod.main <- glm(Infected ~ Genotype + factor(Spore_level), 
+               family = binomial, 
+               data = filter(female_rep1, Spore_level > 0))
+summary(mod.main)
+```
+
+```{r}
+car::Anova(mod.inf, test = "LR")
+```
+
+Welp, looks like the genotype only model is fine. So MLE will be fine.
+
+# Penalized likelihood estimation using logistf
+
+```{r}
+library(logistf)
+
+mod.firth <- logistf(Infected ~ Genotype*factor(Spore_level), data = filter(female_rep1, Spore_level > 0))
+summary(mod.firth)
+```
+
+Logistf fits the model using a penalized likelihood. THis is also known as Firth logistic regression. Not too knowledgable about the theory behind this.
+
+```{r}
+tibble(terms = names(coef(mod.inf)),
+       default_conv = coef(mod.inf),
+       firth = mod.firth$coefficients) %>%
+  knitr::kable(digits = 2)
+```
+
+Note that Firth's method provides shrinkage of parameter estimates toward 0. We can observe this feature in our estimates here, the estimated coefficients are smaller for the Firth method compared to the ML estimated paramters we got earlier. On the probability scale, this means our estimated probability of infection is pulled in closer to 0.5. This is why Firth logistic regression can handle seperation, since seperation means that the estimated probability would be equal to 0 or 1, whereas Firth's method provides "regularization" which serves to draw the predicted probability closer to 0.5.
+
+# Compare predictions of logistic regression: mle vs penalized mle
+
+```{r}
+# pred_df <- expand_grid(Genotype = unique(female_rep1$Genotype),
+#        Spore_level = c("150", "300"))
+
+pred_df <- mod.firth$model %>% select(Genotype, "factor(Spore_level)") %>% unique()
+names(pred_df)[2] <- "Spore_level"
+pred_df$pred_glm <- predict(mod.inf, newdata = pred_df, type = "response")
+pred_df$pred_firth <- mod.firth$predict %>% unique()
+
+summary_prevalence %>% mutate(Spore_level = factor(Spore_level)) %>%
+  inner_join(pred_df, by = c("Genotype", "Spore_level")) %>%
+  select(Genotype, Spore_level, n = n_at_risk, prevalence, pred_glm, pred_firth) %>%
+  knitr::kable(digits = 4)
+```
+
+So, the predicted probability of getting infected is similar between the MLE and the Penalized likehood (Firth) that we just fitted which is good. Essentially, the good thing about the firth method is that our parameter estimates actually converge for the Standard x 300 combination. This means that we can do inference, e.g., test if the log-odds or probability of success differs between genotypes, spore level, or both. But, I need to check how to do this for models fit by penalized likelihood. It should be possible, but not nessecarily a good idea, to construct wald tests/intervals for since I can get the estimates, se, and var-cov matrix from logistf.
+
+
+Alternatively, we could use Bayesian methods (which is how Firth's logistic regression can be derived). This would make it easier to extend to a multivariate setting. Also, we would need to do it anyways to fit zero-inflated models to the spore count data since AFAIK there are no packages that can zero-inflated models that can also use Firth's method for the binary part of the model. In other words, we need to use bayesian estimation for this data problem.
+
+```{r eval = FALSE, include = FALSE}
+mod.firth_reparam <- logistf(Infected ~ Genotype:factor(Spore_level) - 1, data = filter(female_rep1, Spore_level > 0))
+firth_prob <- tibble(pred_prob = mod.firth_reparam$prob,
+                     pred_prob_lwr = boot::inv.logit(mod.firth_reparam$ci.lower),
+                     pred_prob_upr = boot::inv.logit(mod.firth_reparam$ci.upper))
+firth_prob
+```
+
+```{r}
+mod.firth_main <- logistf(Infected ~ Genotype + factor(Spore_level), data = filter(female_rep1, Spore_level > 0))
+anova(mod.firth, mod.firth_main, type = "nested")
+```
+
+So, it doesn't appear that the interaction is necessary. What about dropping spore level?
+
+```{r}
+mod.firth_geno <- logistf(Infected ~ Genotype, data = filter(female_rep1, Spore_level > 0))
+anova(mod.firth_main, mod.firth_geno, type = "nested")
+```
+
+Lets compare all the predictions of the firth models.
+
+```{r}
+pred_df$pred_firth_main <- mod.firth_main$predict %>% unique()
+pred_df$pred_firth_geno <- mod.firth_geno$predict %>% unique()
+
+summary_prevalence %>% mutate(Spore_level = factor(Spore_level)) %>%
+  inner_join(pred_df, by = c("Genotype", "Spore_level")) %>%
+  select(Genotype, Spore_level, n = n_at_risk, prevalence, pred_firth, pred_firth_main, pred_firth_geno) %>%
+  knitr::kable(digits = 4)
+```
+
+Ugh, somethings wrong with the pred_firth_geno column. Whatever, I'll just fit the simpler models using MLE now to check if they have convergence issues.
+
+```{r}
+mod.glm_main <- glm(Infected ~ Genotype + factor(Spore_level), 
+                     family = binomial, data = 
+                       filter(female_rep1, Spore_level > 0))
+summary(mod.glm_main)
+
+mod.glm_geno <- glm(Infected ~ Genotype, 
+                     family = binomial, data = 
+                       filter(female_rep1, Spore_level > 0))
+summary(mod.glm_geno)
+```
+
+```{r}
+anova(mod.glm_main, mod.glm_geno, test = "Chisq")
+```
+
+This tests whether the improvement from including the main effect of spore level "significantly" improves the fit of the model. It does not, so we could just use the model including only main effects of genotype.
+
+Let's look at diagnostic plots of the genotype only model.
+
+```{r}
+plot(mod.glm_geno)
+plot(mod.glm_main)
+plot(mod.inf)
+```
+
+Why are there so few points?
+
+```{r}
+summary(mod.glm_geno)
+filter(female_rep1, 
+    Spore_level > 0, !is.na(Infected))
+```
+
+```{r}
+# number of observations
+mod.glm_geno$residuals %>% length()
+```
+
+Lets fit the model using EVP format like Chris suggests to do model assessment,
+
+```{r}
+# evp with genotype only as covariate
+data_evp_geno <- 
+  filter(female_rep1, 
+    Spore_level > 0) %>%
+  group_by(Genotype) %>%
+  summarise(Infected = sum(Infected, na.rm = TRUE),
+            Trials = n(),
+            Trials_2 = n() - sum(is.na(Infected))) # note n() correctly doesn't include NA rows
+
+# evp with genotype and spore_level
+data_evp_main <- 
+  filter(female_rep1, 
+    Spore_level > 0) %>%
+  group_by(Genotype, Spore_level) %>%
+  summarise(Infected = sum(Infected, na.rm = TRUE),
+            Trials = n()) # note n() correctly doesn't include NA rows
+
+data_evp_geno
+data_evp_main
+```
+
+```{r}
+glm.evp_geno <- glm(Infected/Trials ~ Genotype, 
+    family = binomial, data = data_evp_geno,
+    weights = Trials) 
+
+glm.evp_main <- glm(Infected/Trials ~ Genotype + factor(Spore_level), 
+    family = binomial, data = data_evp_main,
+    weights = Trials) 
+
+cbind(coef(glm.evp_geno), coef(mod.glm_geno))
+```
+
+```{r}
+glm(Infected/Trials ~ Genotype, 
+    family = binomial, data = data_evp_geno,
+    weights = Trials, 
+    control = list(epsilon = 1e-16, maxit = 25)) 
+
+glm(Infected ~ Genotype, 
+                     family = binomial, data = 
+                       filter(female_rep1, Spore_level > 0), 
+    control = list(epsilon = 1e-16, maxit = 25))
+```
