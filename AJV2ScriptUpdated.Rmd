@@ -2,8 +2,10 @@
 title: "script"
 author: "APB"
 date: "12/16/2020"
-output: html_document
-editor_options: 
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
   chunk_output_type: console
 ---
 
@@ -16,6 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
 library(tidyverse)
 library(grid)
+library(mgcv)
 ####Color Theme####
 
 ```
@@ -276,7 +279,7 @@ animal_mean
 
 
 ```{r remove exposed but uninfected animals, include = TRUE}
-## I'm removing these animals b/c I think it complicates the story and we can't provide an explanation right now and we also can't say definitively that they weren't infected in the first place and either cleared the infection completely or kept it too low for us to detect. 
+## I'm removing these exposed but uninfected animals b/c I think it complicates the story and we can't provide an explanation right now and we also can't say definitively that they weren't infected in the first place and either cleared the infection completely or kept it too low for us to detect. 
 ## I can just see this be a sticking point for reviewers that it'd be better avoid in the first place. I'm flexible on this - you can try to convince me otherwise by writing out what the text will say about these animals and how we will pre-empt reviewer's concerns on this matter :)
 
 
@@ -345,10 +348,10 @@ Pinf
     scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
-    ylab("Survival (days post infection)") + xlab(" ")+
+    ylab("Survival (days post infection)") + xlab("Pathogen density")+
     theme(panel.spacing = unit(1.05, "lines"),
       panel.border = element_rect(color = "black", fill = NA, size = 0.25),
-      legend.position = "none", strip.text.x = element_blank()) 
+      legend.position = "none") 
     # Add striped background
   Psurv
   
@@ -368,7 +371,7 @@ library(cowplot)
 
 
 ```{r outlier detection for feeding rate data}
-
+# change the y-axis for each genotype here #
 animal_mean %>%
   group_by(Genotype, Spore_level) %>%
   ggplot()+
@@ -445,6 +448,19 @@ test # remove highest value > 0.4049
 
 ```
 
+
+
+```{r fit GAMs to data}
+library(mgcv)
+gam_y <- with(filtered_df, gam(ss_fr ~ s(Spore_level), method = "REML"))
+
+# model diagnostics
+par(mfrow = c(2,2))
+check.gam
+```
+
+
+
 ```{r}
 
  genolabel <- c("Genotype 1", "Genotype 2", "Genotype 3", "Genotype 4") 
@@ -458,7 +474,7 @@ Pfeed <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level)
   #geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+ 
   scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
-    ylab("Size-specific feeding rate (units)") + xlab("")+
+    ylab("Feeding rate") + xlab("")+
     facet_wrap(.~Genotype, nrow = 1, labeller = labeller(Genotype = genolabel))+
     theme(panel.spacing = unit(1.05, "lines"),
           panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
@@ -482,7 +498,7 @@ Pphenol <- ggplot(po, aes(x = Spore_level, color = as.factor(Spore_level), y = d
   #geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+ 
   scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
-    ylab("Active/Delta phenoloxidase (units)") + xlab("")+
+    ylab("Active phenoloxidase") + xlab("")+
     facet_wrap(.~Genotype, nrow = 1, labeller = labeller(Genotype = genolabel))+
    theme(panel.spacing = unit(1.05, "lines"),
           panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
@@ -500,7 +516,7 @@ Pgrow <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level)
     scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
-    ylab("Growth (change in size + add units)") + xlab("")+
+    ylab("Growth") + xlab("")+
     theme(panel.spacing = unit(1.05, "lines"),
           panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
           legend.position = "none", strip.text.x = element_blank())
@@ -517,7 +533,7 @@ Pbirth <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level
     scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
-    ylab("Fecundity (units)") + xlab("")+
+    ylab("Fecundity") + xlab("")+
     theme(panel.spacing = unit(1.05, "lines"),
           panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
           legend.position = "none", strip.text.x = element_blank())
@@ -535,9 +551,9 @@ Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_leve
     scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
-    ylab("Size-corrected spore yield (units)") + xlab("Pathogen density (units)")+
+    ylab("Spore yield") + xlab("Pathogen density")+
     theme(panel.spacing = unit(1.05, "lines"),
-          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  
           legend.position = "none", strip.text.x = element_blank())
  Pspores
 
@@ -548,8 +564,6 @@ library(cowplot)
   ggsave("RTPlot2.png", RTPlot2, height = 10, width = 12, dpi = 600)
 
 ```
-
-
 
 
 ```{r}
@@ -563,14 +577,14 @@ library(cowplot)
 
 
 # Feeding rate - size specific (see Appendix for analyses illustrating links between body size and feeding rates)
-Pfeed <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level), y = ss_fr))+
+Pfeed <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level), y = mean_feeding_rate))+
   geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
   stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2))+
   geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30)+
   #geom_jitter(width = 0.5, height = 1.85, alpha = 0.30, size = 3)+ 
   scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
-    ylab("Size-specific feeding rate (unites)") + xlab("")+
+    ylab("Feeding rate") + xlab("")+
     facet_wrap(.~Genotype, nrow = 1, labeller = labeller(Genotype = genolabel))+
     theme(panel.spacing = unit(1.05, "lines"),
           panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
@@ -580,8 +594,8 @@ Pfeed <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level)
           legend.title = element_text(size = 10),
           legend.text = element_text(size = 8),
           strip.text.x = element_text(size = 12, face = "bold"))
-Pfeed
-  
+Pfeed +
+
 
   # Growth
 Pgrow <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y = mean_growth_length))+
@@ -592,7 +606,7 @@ Pgrow <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level)
     scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
-    ylab("Growth (change in size + add units)") + xlab("")+
+    ylab("Growth") + xlab("")+
     theme(panel.spacing = unit(1.05, "lines"),
           panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
           legend.position = "none", strip.text.x = element_blank())
@@ -609,7 +623,7 @@ Pbirth <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level
     scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
-    ylab("Fecundity (units)") + xlab("")+
+    ylab("Fecundity") + xlab("")+
     theme(panel.spacing = unit(1.05, "lines"),
           panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
           legend.position = "none", strip.text.x = element_blank())
@@ -618,7 +632,7 @@ Pbirth
 
 
     # Spore Yield - Size specific (see Appendix for the analyses on the relationship between body size and spore yield)
-Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y =    spores_ul/mean_final_surface_area))+
+Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_level),  y =    spores_ul))+
   geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "grey", color = "NA", alpha = 0.01)+
     stat_summary(fun.data  = mean_se, size = 1, alpha = 1.75,
                  position = position_dodge(0.2))+
@@ -627,9 +641,9 @@ Pspores <- ggplot(filtered_df, aes(x = Spore_level, color = as.factor(Spore_leve
     scale_color_manual(values = c("#563caa", "darkcyan", "#90aa3c", "#3caa56" , "continuous"), name = "Spore level") +
     singlefigtheme+
     facet_wrap(~Genotype, nrow = 1)+
-    ylab("Size-corrected spore yield (units)") + xlab("Pathogen density (units)")+
+    ylab("Spore yield") + xlab("Pathogen density")+
     theme(panel.spacing = unit(1.05, "lines"),
-          panel.border = element_rect(color = "black", fill = NA, size = 0.25),  axis.title.x = element_blank(),
+   panel.border = element_rect(color = "black", fill = NA, size = 0.25),
           legend.position = "none", strip.text.x = element_blank())
  Pspores
 
@@ -926,7 +940,7 @@ Feed
 ```
 
 
-```{r statistics}
+```{r statistics part 2}
 
 #####################################################################################
 ####Does feeding rate and spore level at exposure determine infection prevalance?####

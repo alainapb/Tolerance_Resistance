@@ -259,8 +259,8 @@ summary(fit5<-lm(cor_delta_po ~ fr + Genotype + sc_spores, data = all_po))
     labs(x= "Size corrected feeding rate", y = "Active PO")+
     theme_bw()+
     theme(panel.border = element_rect(color="black", fill="NA", size=1),
-          axis.title.x=element_text(color="black", size = 17),
-          axis.title.y=element_text(color="black", size = 17),
+          axis.title.x=element_text(color="black", size = 12),
+          axis.title.y=element_text(color="black", size = 12),
           axis.text.x=element_text(color="black", size = 12),
           axis.text.y=element_text(color="black", size = 12),
           axis.ticks.x=element_line(color="black", size = .5)))
