@@ -1,0 +1,1725 @@
+---
+title: "Pfenning-ButterworthFiguresandStats"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r test, warning = FALSE}
+   withCallingHandlers(
+        expr    = as.numeric(c("1", "A")), 
+        warning = function(w) warn <<- paste("** warning:", w$message, "**\n\n")
+   )
+```
+
+```{r print_warn, echo=FALSE}
+  if(exists("warn")) cat(warn)
+```
+
+Load libraries
+
+```{r load libraries, include = FALSE, warning = FALSE, message = FALSE}
+devtools::install_github("zeehio/facetscales")
+library(ggplot2)
+library(patchwork)
+library(tidyverse)
+library(cowplot)  
+library(here)
+library(facetscales)
+require(facetscales)
+library(lme4)
+#library(countreg)
+library(MASS)
+library(pscl)
+library(flextable)
+library(betareg)
+library(emmeans)
+```
+
+
+
+```{r load data, include = FALSE, echo = FALSE}
+df <- read.csv(here("01_Data", "MeansForFeedingRateAJV2.csv"))
+names(df)
+
+with(df, hist(mean_feeding_rate))
+
+
+
+data <- read_csv(here("01_Data", "AJV2_6Nov2019_JLH.csv"))
+names(data)
+
+lifetable <- read_csv(here("01_Data", "LifeTable_AJV2_3Dec2019.csv"))
+names(lifetable)
+
+```
+
+
+
+
+
+```{r set figure themes, include = FALSE, echo = FALSE}
+
+singlefigtheme <-theme_classic()+theme(axis.title.x = element_text(size = 18),
+                                      axis.title.y = element_text(size = 18),
+                                      axis.text.x = element_text(size = 14),
+                                      axis.text.y = element_text(size = 14))
+
+
+
+singlefigtheme2 <-theme_classic()+theme(axis.title.x = element_text(size = 16),
+                                       axis.title.y = element_text(size = 16),
+                                       axis.text.x = element_text(size = 12),
+                                       axis.text.y = element_text(size = 12))
+                                       
+                                       
+position_jitterdodge(
+  jitter.width = NULL,
+  jitter.height = 0,
+  dodge.width = 0.65,
+  seed = NA
+)
+```
+
+
+
+```{r data processing part 1, include = FALSE, echo = FALSE}
+
+#merge data together
+all.data.joined <- data %>% 
+  left_join(lifetable, by = c("Genotype", 
+                              "Spore_level", 
+                              "Animal",  
+                              "Sex"))
+
+#merge data together
+all.data.joined2 <- all.data.joined %>% 
+  left_join(df, by = c("Genotype", 
+                              "Spore_level", 
+                              "Animal"))
+
+```
+
+
+```{r data processing part 2, include = FALSE, echo = FALSE}
+#### Data for plotting ####
+
+inf1 <- all.data.joined2  %>% 
+  group_by(Genotype, Spore_level, Animal) %>%
+  # count only one tech replicate otherwise, the sample size is inflated! 
+  dplyr::filter(Technical_Replicate == "1") %>% 
+  dplyr::filter( !Infected_Uninfected %in% "DayZero") %>% # remove animals that die on set up due to user error
+  dplyr::filter( !Infected_Uninfected %in% "NA") %>%
+  #dplyr::filter( !Infected_Uninfected %in% "Exposed") %>%
+  dplyr::filter(mean_feeding_rate > 0.00) %>% # remove negative feeding rates, which represent technical errors
+  mutate(meangrowth = mean(Total_Growth, na.rm = T),
+         segrowth = sd(Total_Growth, na.rm = T)/sqrt(n()),
+         finalsize = mean(Final_Size_mm2, na.rm = T),
+         sesize = sd(Final_Size_mm2, na.rm = T)/sqrt(n()),
+         meandayfirstclutch = mean(Age_1st_clutch, na.rm = T),
+         sefirstclutch = sd(Age_1st_clutch, na.rm = TRUE)/sqrt(n()),
+         meanfitnes = mean(Total_Offspring, na.rm = T),
+         sefitness = sd(Total_Offspring, na.rm = TRUE)/sqrt(n()),
+         meandaydeath = mean(TimeTillDeathDays, na.rm = T),
+         sedeathday = sd(TimeTillDeathDays, na.rm = TRUE)/sqrt(n()),
+         meanfeedrate = mean(mean_feeding_rate, na.rm = T),
+         sefeedrate = sd(mean_feeding_rate, na.rm = TRUE)/sqrt(n()),
+         totInf  = sum(Infected, na.rm = T),
+         totSusc = sum(Susceptible, na.rm = T),
+         totExp = sum(Exposed, na.rm = T),
+         N = sum(totSusc + totInf + totExp),
+         probinf =  totInf/(totInf + totSusc + totExp)) %>% 
+  mutate(meaninf = sum(1*probinf)) %>% 
+  mutate(variance = sum((1^2)*meaninf) - (meaninf^2)) %>% 
+  mutate(stdevDinf = sqrt(variance),
+         meanspores = mean(Spores_ul,  na.rm = T), 
+         sespores = sd(Spores_ul, na.rm = TRUE)/sqrt(n())) %>%
+  dplyr::select(Genotype, Spore_level, Infected_Uninfected, 
+                Animal, probinf,
+                meangrowth, segrowth,
+                totInf, totSusc,
+                finalsize, sesize,
+                meandayfirstclutch,
+                sefirstclutch,
+                meanfitnes, sefitness,
+                meaninf, stdevDinf,  
+                meanspores, sespores,
+                meandaydeath, sedeathday,
+                meanfeedrate, sefeedrate) %>%
+  distinct() %>% as.data.frame()
+
+
+```
+
+
+
+```{r data processing part 3, include = FALSE, echo = FALSE}
+inf2 <- all.data.joined2  %>% 
+  group_by(Genotype, Spore_level) %>%
+  # count only one tech replicate otherwise, the sample size is inflated! 
+  dplyr::filter(Technical_Replicate == "1") %>% 
+  dplyr::filter( !Infected_Uninfected %in% "DayZero") %>% # remove animals that die on set up due to user error
+  dplyr::filter( !Infected_Uninfected %in% "NA") %>%
+  #dplyr::filter( !Infected_Uninfected %in% "Exposed") %>%
+  dplyr::filter(mean_feeding_rate > 0.00) %>%
+   mutate(meangrowth = mean(Total_Growth, na.rm = T),
+         segrowth = sd(Total_Growth, na.rm = T)/sqrt(n()),
+         finalsize = mean(Final_Size_mm2, na.rm = T),
+         sesize = sd(Final_Size_mm2, na.rm = T)/sqrt(n()),
+         meandayfirstclutch = mean(Age_1st_clutch, na.rm = T),
+         sefirstclutch = sd(Age_1st_clutch, na.rm = TRUE)/sqrt(n()),
+         meanfitnes = mean(Total_Offspring, na.rm = T),
+         sefitness = sd(Total_Offspring, na.rm = TRUE)/sqrt(n()),
+         meandaydeath = mean(TimeTillDeathDays, na.rm = T),
+         sedeathday = sd(TimeTillDeathDays, na.rm = TRUE)/sqrt(n()),
+         meanfeedrate = mean(mean_feeding_rate, na.rm = T),
+         sefeedrate = sd(mean_feeding_rate, na.rm = TRUE)/sqrt(n()),
+         totInf  = sum(Infected, na.rm = T),
+         totSusc = sum(Susceptible, na.rm = T),
+         totExp = sum(Exposed, na.rm = T),
+         N = sum(totSusc + totInf),
+         probinf =  totInf/(totInf + totSusc + totExp)) %>% 
+  mutate(meaninf = sum(1*probinf)) %>% 
+  mutate(variance = sum((1^2)*meaninf) - (meaninf^2)) %>% 
+  mutate(stdevDinf = sqrt(variance),
+         meanspores = mean(Spores_ul,  na.rm = T), 
+         sespores = sd(Spores_ul, na.rm = TRUE)/sqrt(n())) %>%
+  dplyr::select(Genotype, Spore_level, probinf,
+                meangrowth, segrowth,
+                finalsize, sesize,
+                meandayfirstclutch,
+                sefirstclutch,
+                meanfitnes, sefitness,
+                meaninf, stdevDinf,  
+                meanspores, sespores,
+                meandaydeath, sedeathday,
+                meanfeedrate, sefeedrate) %>%
+  distinct() %>% as.data.frame()
+
+```
+
+
+
+#### PLOT MEAN Feeding WITH MEAN SPORES ####
+
+set the y-axis for each genotype separately: M281 eats much more than everyone else 
+adjusting scale so differences among spore levels for other genotypes are easily seen.
+
+```{r setting up plots, include = FALSE, echo = FALSE}
+
+
+
+scales_y <- list(
+  "A45" = scale_y_continuous(limits = c(0.05, 0.25), breaks = seq(0.05, 0.15, 0.25)),
+  "Midland 253" = scale_y_continuous(limits = c(0.05, 0.25), breaks = seq(0.05, 0.15, 0.25)),
+  "Midland 281" = scale_y_continuous(limits = c(0.05, 0.65), breaks = seq(0.05, 0.35, 0.65)),
+  "Standard" = scale_y_continuous(limits = c(0.05, 0.25), breaks = seq(0.05, 0.15, 0.25))
+)
+
+
+
+genotype = c("A45", "A45", "A45", 
+             "Midland 253", "Midland 253", "Midland 253",
+             "Midland 281", "Midland 281", "Midland 281",
+             "Standard", "Standard", "Standard")
+
+
+genolabel <- c("Genotype 4 ('A45')", "Genotype 3 ('Midland 252')", "Genotype 2 ('Midland 281')", "Genotype 1 ('Standard')") 
+names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
+
+
+```
+
+
+#### Alternative options considered for plot 2 #### 
+#### Multi-panel (8 total) with susceptibility first and then spore yield ####
+
+
+```{r plotting prevalence,  echo = FALSE}
+
+
+
+previnf1 <- 
+  ggplot(inf1 %>% 
+           filter( !Spore_level %in% "0") %>% # removing this level b/c need to jitter the other points...but this creates false-positives in the zero spore levels.
+           filter(Genotype=="A45"), aes(x = Spore_level, color = as.factor(Spore_level), y = probinf*100)) +
+  geom_rect(xmin = -Inf, xmax = 25, ymin = -Inf, ymax = 300, fill = "lightgrey", color = "NA") +
+  geom_violin(alpha = 0.5) + 
+  geom_jitter(size = 5, width = 0.10, alpha = 0.3)+
+  stat_summary(fun = "mean",
+               geom = "point",
+               color = c("goldenrod1", "darkmagenta"),
+               size = 7) +
+  labs(y = expression("Infection prevalence")) +
+  scale_color_manual(values = c( "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  singlefigtheme +
+  ylab("")+
+  labs(x = expression("Pathogen dose (no. mL"^-1*")")) +
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
+        legend.position = "none",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12)) +
+  scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_x_continuous(limits = c(-10, 370), breaks = c(0, 150, 300))
+
+
+previnf2 <- 
+  ggplot(inf1 %>% 
+           filter( !Spore_level %in% "0") %>% # removing this level b/c need to jitter the other points...but this creates false-positives in the zero spore levels.
+           filter(Genotype=="Midland 252"), aes(x = Spore_level, color = as.factor(Spore_level), y = probinf*100)) +
+  geom_rect(xmin = -Inf, xmax = 25, ymin = -Inf, ymax = 300, fill = "lightgrey", color = "NA") +
+  geom_violin(alpha = 0.5) + 
+  geom_jitter(size = 5, width = 0.10, alpha = 0.3)+
+  stat_summary(fun = "mean",
+               geom = "point",
+               color = c("goldenrod1", "darkmagenta"),
+               size = 7) +
+  scale_color_manual(values = c("goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  singlefigtheme+
+  labs(y = expression("Susceptibility (% infected)"))+
+  labs(x = expression("Pathogen dose (no. mL"^-1*")")) +
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
+        legend.position = "none",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_x_continuous(limits = c(-10, 370), breaks = c(0, 150, 300))
+
+
+
+previnf3 <- 
+  ggplot(inf1 %>% 
+           filter( !Spore_level %in% "0") %>% # removing this level b/c need to jitter the other points...but this creates false-positives in the zero spore levels.
+           filter(Genotype=="Midland 281"), aes(x = Spore_level, color = as.factor(Spore_level), y = probinf*100)) +
+  geom_rect(xmin = -Inf, xmax = 25, ymin = -Inf, ymax = 300, fill = "lightgrey", color = "NA") +
+  geom_violin(alpha = 0.5) + 
+  geom_jitter(size = 5, width = 0.10, alpha = 0.3)+
+  stat_summary(fun = "mean",
+               geom = "point",
+               color = c("goldenrod1", "darkmagenta"),
+               size = 7) +
+  scale_color_manual(values = c("goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  singlefigtheme+
+  ylab("") +
+  xlab("") +
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
+        legend.position = "none",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_x_continuous(limits = c(-10, 370), breaks = c(0, 150, 300))
+
+
+
+
+previnf4 <- 
+  ggplot(inf1 %>% 
+           filter( !Spore_level %in% "0") %>% # removing this level b/c need to jitter the other points...but this creates false-positives in the zero spore levels.
+           filter(Genotype=="Standard"), aes(x = Spore_level, color = as.factor(Spore_level), y = probinf*100)) +
+  geom_rect(xmin = -Inf, xmax = 25, ymin = -Inf, ymax = 300, fill = "lightgrey", color = "NA") +
+  geom_violin(alpha = 0.5) + 
+  geom_jitter(size = 5, width = 0.10, alpha = 0.3)+
+  stat_summary(fun = "mean",
+               geom = "point",
+               color = c("goldenrod1", "darkmagenta"),
+               size = 7) +
+  scale_color_manual(values = c("goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  singlefigtheme+
+  labs(y = expression("Susceptibility (% infected)"))+
+  xlab("") + 
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
+        legend.position = "none",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_x_continuous(limits = c(-10, 370), breaks = c(0, 150, 300))
+# combine figures
+
+previnf4 + previnf3 + previnf2 + previnf1 
+#### 
+```
+
+
+
+```{r plotting spore yield, echo = FALSE}
+spores1 <- 
+  ggplot(inf1 %>% 
+           filter(Genotype=="A45"), aes(x = Spore_level, color = as.factor(Spore_level), y = meanspores)) +
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
+  stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2)) +
+  geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30) +
+  labs(y = expression("Susceptibility (infection prevalence)"))+
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  singlefigtheme+
+  xlab("")+
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.25),  
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "none",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))
+
+
+
+spores2 <- 
+  ggplot(inf1 %>% 
+           filter(Genotype=="Midland 252"), aes(x = Spore_level, color = as.factor(Spore_level), y = meanspores)) +
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
+  stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2)) +
+  geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30) +
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  singlefigtheme+
+  ylab("") + xlab("")+
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.25),  
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        legend.position = "none",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))
+
+
+
+spores3 <- 
+  ggplot(inf1 %>% 
+           filter(Genotype=="Midland 281"), aes(x = Spore_level, color = as.factor(Spore_level),  y = meanspores)) +
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
+  stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2)) +
+  geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30) +  
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  singlefigtheme+
+  labs(y = expression("Susceptibility (infection prevalence)"))+
+  labs(x = expression("Spore dose (no. mL"^-1*")"))+
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.25),  
+        legend.position = "none",
+        #legend.position = c(0.95,0.75),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))
+
+
+
+spores4 <- 
+  ggplot(inf1 %>% 
+           filter(Genotype=="Standard"), aes(x = Spore_level, color = as.factor(Spore_level),  y = meanspores)) +
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
+  stat_summary(fun.data = mean_se, size = 1, alpha = 1.75, position = position_dodge(0.2)) +
+  geom_point(position = position_dodge(0.2), size = 3, alpha = 0.30) +
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  singlefigtheme+
+  ylab("") + 
+  #labs(x = expression("Spore dose (no. mL"^-1*")"))+
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.25),  
+        legend.position = "none",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))
+
+
+
+
+# combine figures
+spores1 + spores2 + spores3 + spores4
+
+#### 
+
+```
+
+
+
+
+
+
+#### Plot 2 A Hosts differ in their immune-mediated changes in feeding behavior ####
+#### Showing results in this layout to emphasize the difference among the genotypes ####
+#### Note, this requires adjusting the y-axis since one genotype consumes much more relative 
+#### to the others ####
+#### Grey shading emphasizes the comparison to pathogen-free environments ####
+#### The focus here is on animals that were either unexposed or infected, thus we will exclude animals that were exposed but where infections were either cleared or too low to detect.
+
+```{r plotting feeding rates,  echo = FALSE}
+
+
+feed1 <- 
+  ggplot(inf1 %>% 
+           filter(Genotype=="A45"), aes(x = Spore_level, fill = as.factor(Spore_level), color = as.factor(Spore_level), y = meanfeedrate)) +
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
+  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75,  position = position_dodge(0.2)) +
+  geom_point(aes(shape = as.factor(Infected_Uninfected)), position = position_jitterdodge(), size = 5, alpha = 0.50) +
+  scale_shape_manual(values = c(25, 1, 24))+
+  scale_fill_manual(values = c("darkcyan", "goldenrod1", "darkmagenta"))+
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  ylab("")+
+  labs(x = expression("Pathogen dose (no. mL"^-1*")")) +
+  singlefigtheme+
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
+        legend.position = "none",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0.05, 0.25), breaks = c(0.05, 0.15, 0.25))+
+  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
+ feed1
+
+
+feed2 <- 
+  ggplot(inf1 %>% 
+           filter(Genotype=="Midland 252"), aes(x = Spore_level, fill = as.factor(Spore_level), color = as.factor(Spore_level),y = meanfeedrate)) +
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
+  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75,  position = position_dodge(0.2)) +
+  geom_point(aes(shape = as.factor(Infected_Uninfected)), position = position_jitterdodge(), size = 5, alpha = 0.50) +
+  scale_shape_manual(values = c(25, 1, 24))+
+  scale_fill_manual(values = c("darkcyan", "goldenrod1", "darkmagenta"))+
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  singlefigtheme+
+  labs(y = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")"))+
+  labs(x = expression("Pathogen dose (no. mL"^-1*")"))+
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
+        legend.position = "none",
+        #legend.position = c(0.95,0.75),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0.05, 0.25), breaks = c(0.05, 0.15, 0.25))+
+  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
+
+
+feed3 <- 
+  ggplot(inf1 %>% 
+           filter(Genotype=="Midland 281"), aes(x = Spore_level, fill = as.factor(Spore_level), color = as.factor(Spore_level),  y = meanfeedrate)) +
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
+  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75,  position = position_dodge(0.2)) +
+  geom_point(aes(shape = as.factor(Infected_Uninfected)), position = position_jitterdodge(), size = 5, alpha = 0.50) +
+  scale_shape_manual(values = c(25, 1, 24))+
+  scale_fill_manual(values = c("darkcyan", "goldenrod1", "darkmagenta"))+
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  singlefigtheme+
+  ylab("") + 
+  xlab("")+
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
+        #axis.title.x = element_blank(),
+        #axis.text.x = element_blank(),
+        legend.position = c(0.89, 0.85), legend.box = "horizontal",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0.05, 0.65), breaks = c(0.05, 0.35, 0.65))+
+  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))+
+  labs(shape = "Status")+
+  guides(fill = "none", color = "none")
+
+
+
+
+feed4 <- 
+  ggplot(inf1 %>% 
+           filter(Genotype=="Standard"), aes(x = Spore_level, fill = as.factor(Spore_level), color = as.factor(Spore_level),  y = meanfeedrate)) +
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
+  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75,  position = position_dodge(0.2)) +
+  geom_point(aes(shape = as.factor(Infected_Uninfected)), position = position_jitterdodge(), size = 5, alpha = 0.50) +
+  scale_shape_manual(values = c(25, 1, 24))+
+  scale_fill_manual(values = c("darkcyan", "goldenrod1", "darkmagenta"))+
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "") +
+  singlefigtheme+
+  labs(y = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")"))+
+  xlab("")+
+  facet_grid(~ Genotype,
+             labeller = labeller(Genotype = genolabel)) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0.05, 0.25), breaks = c(0.05, 0.15, 0.25))+
+  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))+
+  theme(legend.position = "none")
+
+
+
+# combine figures
+Figure3 <- feed4 + feed3 + feed2 + feed1 
+Figure3
+#Figure3 + theme(legend.position = 'right')
+#Fig3 <- Figure3 + plot_layout(guides = 'collect') 
+
+
+#ggsave("FeedingRates.png", Fig3, height = 10, width = 14, dpi = 600)
+
+```
+
+
+
+
+
+
+
+
+
+
+#### More susceptible genotypes showed stronger illness mediated anorexia relative to less genotypes ####
+#### The magnitude of the anorexic response was unaffected by pathogen dose, except in the least susceptible genotype 
+
+
+
+
+ #### More susceptible genotypes, which showed stronger illness mediated anorexia relative to less genotypes ####
+ #### Also tended to produce more pathogen spores. despite eating fewer resources, which should 
+ #### reduce the resources available to support pathogen growth. These results 
+ #### suggest that for this genotype (Midland 281), anorexia appears to function as an anti-growth resistance mechanism ####
+ #### For the other genotype exhibiting anorexia (Standard), anorexia appears to function as a tolerance mechanism 
+ 
+
+```{r plotting infection frequency with spore yield,  echo = FALSE}
+#### Host genotypes differ in susceptibility and transmission potential (spore yield)
+
+genolabel <- c("Genotype 1", "Genotype 2", "Genotype 3", "Genotype 4") 
+names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
+
+
+
+plota <- inf2 %>% 
+  ggplot(aes(x = probinf*100, 
+             y = meanspores, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_errorbar(aes(ymin = meanspores - sespores, 
+                    ymax = meanspores + sespores,
+                    width = 0)) +
+  geom_point(position = position_dodge(0), size = 5) +
+  #scale_color_viridis(discrete = TRUE, option = "D")+
+  #scale_fill_viridis(discrete = TRUE) +
+  xlab("") + 
+  labs(y = expression("Spore yield (spores host"^-1* "x 10"^3* ")"))+
+  singlefigtheme2+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75),  
+        legend.title = element_text(size = 10),
+        strip.text.x = element_text(size = 12, face = "bold")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"))+
+  theme(legend.position = c(0.35, 0.84), 
+        legend.box = "horizontal",
+        legend.key.size = unit(0.01, 'cm'))+
+  labs(shape = "Pathogen dose", color = "Host genotype")+
+  scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))
+plota
+
+
+plotb <- inf2 %>% 
+  ggplot(aes(x = probinf*100, 
+             y = meanfitnes, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_errorbar(aes(ymin = meanfitnes - sefitness, 
+                    ymax = meanfitnes + sefitness,
+                    width = 0)) +
+  geom_point(position = position_dodge(0), size = 5) +
+  #scale_color_viridis(discrete = TRUE, option = "D")+
+  #scale_fill_viridis(discrete = TRUE) +
+  xlab("") + 
+  labs(y = expression("Total reproduction (offspring host"^-1*")"))+
+  singlefigtheme2+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75),  
+        legend.position = "top",
+        #legend.position = c(0.95,0.75),
+        legend.title = element_text(size = 10),
+        strip.text.x = element_text(size = 12, face = "bold")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"))+
+  theme(legend.position = "none")+
+  labs(shape = "Pathogen dose", color = "Host genotype")+
+  scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_y_continuous(limits = c(0, 8), breaks = c(0, 2, 4, 6, 8))
+plotb
+
+
+plotc <- inf2 %>% 
+  ggplot(aes(x = probinf*100, 
+             y = meangrowth, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_errorbar(aes(ymin = meangrowth - segrowth, 
+                    ymax = meangrowth + segrowth,
+                    width = 0)) +
+  geom_point(position = position_dodge(0), size = 5) +
+  #scale_color_viridis(discrete = TRUE, option = "D")+
+  #scale_fill_viridis(discrete = TRUE) +
+  xlab("Susceptibility (% infected)") + 
+  labs(y = expression("Total growth (final - initial size, mm"^2*")")) +
+  singlefigtheme2+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75),  
+        legend.position = "top",
+        #legend.position = c(0.95,0.75),
+        legend.title = element_text(size = 8),
+        legend.text=element_text(size = 8),
+        strip.text.x = element_text(size = 12, face = "bold")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"))+
+  theme(legend.position = "none")+
+  labs(shape = "Pathogen dose", color = "Host genotype")+
+  scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_y_continuous(limits = c(0.6, 1.2), breaks = c(0.6, 0.8, 1.0, 1.2))
+plotc
+
+
+plotd <- inf2 %>% 
+  ggplot(aes(x = probinf*100, 
+             y = meandaydeath, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_errorbar(aes(ymin = meandaydeath - sedeathday, 
+                    ymax = meandaydeath + sedeathday,
+                    width = 0)) +
+  geom_point(position = position_dodge(0), size = 5) +
+  #scale_color_viridis(discrete = TRUE, option = "D")+
+  #scale_fill_viridis(discrete = TRUE) +
+  xlab("Susceptibility (% infected)") + 
+  labs(y = expression("Survival (day of death )")) +
+  singlefigtheme2+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75),  
+        legend.position = "top",
+        #legend.position = c(0.95,0.75),
+        legend.title = element_text(size = 8),
+        legend.text=element_text(size = 8),
+        strip.text.x = element_text(size = 12, face = "bold")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"))+
+  theme(legend.position = "none")+
+  labs(shape = "Pathogen dose", color = "Host genotype")+
+  scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_y_continuous(limits = c(10, 14), breaks = c(10, 12, 14))
+plotd
+
+Figure5 <- (plota + plotb)/ (plotc + plotd)
+Figure5
+```
+
+
+#### For the genotype with the strongest anorexia (Standard), anorexia helped hosts tolerate infection but
+#### came at the cost of reduced growth. Thus, this genotype consumed fewer resources and grew less, but still produdced more spores. 
+#### The most resistant/least susceptible genotype experienced no 
+#### reduction in growth rate. A45 did not exhibit anorexia, but still suffered a reduction in growth rate
+
+
+
+```{r plotting feeding rates with host growth rates, echo = FALSE}
+plotgrowth <- inf2 %>% 
+  ggplot(aes(y = meangrowth, 
+             x = meanfeedrate, 
+             ymin = meangrowth - segrowth,
+             ymax = meangrowth + segrowth, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_point(position = position_dodge(0.2), size = 5)+
+  geom_errorbar(aes(ymin = meangrowth - segrowth,
+                    ymax = meangrowth + segrowth,
+                    width = 0)) +
+  geom_errorbarh(aes(xmin = meanfeedrate - sefeedrate, 
+                     xmax = meanfeedrate + sefeedrate,
+                     height = 0)) +
+  geom_point(position = position_dodge(0.2), size = 5) +
+  ylab("Total growth (final - intial size, mm)") + 
+  labs(x = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")")) +
+  singlefigtheme2+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75))+  
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black")) +
+  theme(legend.position = "none") + 
+  scale_x_continuous(limits = c(0.05, 0.65), breaks = c(0.10, 0.35, 0.60))
+plotgrowth
+
+```
+
+
+
+
+
+#### Some genotypes exhibit higher total reproduction or fecundity overcompoensation, bbut only at certain spore levels
+```{r plotting feeding rates with host fitness (fecundity),  echo = FALSE}
+plotfitness <- inf2 %>% 
+  ggplot(aes(y = meanfitnes, 
+             x = meanfeedrate, 
+             ymin = meanfitnes - sefitness,
+             ymax = meanfitnes + sefitness, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_point(position = position_dodge(0.2), size = 5)+
+  geom_errorbar(aes(ymin = meanfitnes - sefitness,
+                    ymax = meanfitnes + sefitness,
+                    width = 0)) +
+  geom_errorbarh(aes(xmin = meanfeedrate - sefeedrate, 
+                     xmax = meanfeedrate + sefeedrate,
+                     height = 0)) +
+  geom_point(position = position_dodge(0.2), size = 5) +
+  labs(y = expression("Total reproduction (# host" ^-1*")")) + 
+  labs(x = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")")) +
+  singlefigtheme2+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75))+  
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"))+
+  theme(legend.position = "none") + 
+  scale_y_continuous(limits = c(1.0, 8.0), breaks = c(1.50, 3.50, 5.50, 7.50))
+  scale_x_continuous(limits = c(0.05, 0.65), breaks = c(0.10, 0.35, 0.60))
+plotfitness
+
+```
+
+
+
+```{r plotting feeding rates with spore yield/within-host spore density,  echo = FALSE}
+
+plotsporeyield <- inf2 %>% 
+  #dplyr::filter(Spore_level > 0) %>% 
+  ggplot(aes(y = meanspores, 
+             x = meanfeedrate, 
+             ymin = meanspores - sespores,
+             ymax = meanspores + sespores, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_point(position = position_dodge(0.2), size = 5)+
+  geom_errorbar(aes(ymin = meanspores - sespores,
+                    ymax = meanspores + sespores,
+                    width = 0)) +
+  geom_errorbarh(aes(xmin = meanfeedrate - sefeedrate, 
+                     xmax = meanfeedrate + sefeedrate,
+                     height = 0)) +
+  geom_point(position = position_dodge(0.2), size = 5) +
+  labs(y = expression("Spore yield (spores host"^-1* "x 10"^3* ")")) + 
+  xlab("")+
+  singlefigtheme2+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75))+  
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black")) +
+  theme(legend.position = c(0.70, 0.80), 
+        legend.box = "horizontal",
+        legend.key.size = unit(0.01, 'cm'))+
+  labs(shape = "Pathogen dose", color = "Host genotype") +
+  scale_x_continuous(limits = c(0.05, 0.65), breaks = c(0.10, 0.35, 0.60))
+plotsporeyield
+```
+
+
+
+
+#### hosts ate significantly less when exposed to more pathogen spores. 
+```{r plotting feeding rates and infection frequency,  echo = FALSE}
+plotinfection <- inf2 %>% 
+  ggplot(aes(y = probinf*100, 
+             x = meanfeedrate, 
+             #ymin = meaninf - stdevDinf,
+             #ymax = meaninf + stdevDinf, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_point(position = position_dodge(0.2), size = 5, alpha = 0.7)+
+  #geom_errorbar(aes(ymin = meaninf - stdevDinf,
+  #                  ymax = meaninf + stdevDinf,
+  #                  width = 0)) +
+  geom_errorbarh(aes(xmin = meanfeedrate - sefeedrate, 
+                     xmax = meanfeedrate + sefeedrate,
+                     height = 0)) +
+  geom_point(position = position_dodge(0.2), size = 5, alpha = 0.7) +
+  ylab("Susceptibility (% infected)")  + 
+  xlab("")+
+  #labeller = labeller(Genotype = genolabel)+
+  singlefigtheme2+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75))+  
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black")) +
+  theme(legend.position = "none")+
+  scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_x_continuous(limits = c(0.05, 0.65), breaks = c(0.10, 0.35, 0.60))
+```
+
+
+#### Feeding and Susceptibility 
+#### Feeding and Spore Yield
+#### Feeding and Fitness
+#### Feeding and Growth
+
+```{r combining figures part 1, include = FALSE, echo = FALSE}
+Figure6 <- (plotinfection + plotsporeyield)/ (plotfitness + plotgrowth) 
+Figure6 
+```
+
+
+
+
+
+### Appendix figures ###
+```{r plotting host fitness and within-host pathogen density (spore yield),  echo = FALSE}
+
+
+plotfityield <- inf2 %>% 
+  ggplot(aes(x = meanspores, 
+             y = meanfitnes, 
+             xmin = meanspores - sespores,
+             xmax = meanspores + sespores, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_point(position = position_dodge(0.2), size = 5)+
+  geom_errorbarh(aes(xmin = meanspores - sespores,
+                     xmax = meanspores + sespores,
+                     height = 0)) +
+  geom_errorbar(aes(ymin = meanfitnes - sefitness, 
+                    ymax = meanfitnes + sefitness,
+                    width = 0)) +
+  geom_point(position = position_dodge(0.2), size = 5) +
+  labs(x = expression("Spore yield (spores host"^-1* " 10"^3* ")"))+ 
+  labs(y = expression("Total reproduction (host" ^-1*")")) +
+  singlefigtheme2+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75))+  
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black")) +
+  theme(legend.position = "none")
+
+
+```
+
+
+
+
+
+
+
+
+#### Anti-growth resistance came at the cost of reduced lifespan, but 
+#### otherwise, infection had little effect on lifespan (at least over the limited time frame captured in this assay - a great avenue for future exploration)
+
+
+```{r plotting feeding rates and host longevity (mean day of death),  echo = FALSE}
+
+plotlifespan <- inf2 %>% 
+  ggplot(aes(y = meandaydeath, 
+             x = meanfeedrate, 
+             ymin = meandaydeath - sedeathday,
+             ymax = meandaydeath + sedeathday, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_point(position = position_dodge(0.2), size = 2)+
+  geom_errorbar(aes(ymin = meandaydeath - sedeathday,
+                    ymax = meandaydeath + sedeathday,
+                    width = 0)) +
+  geom_errorbarh(aes(xmin = meanfeedrate - sefeedrate, 
+                     xmax = meanfeedrate + sefeedrate,
+                     height = 0)) +
+  geom_point(position = position_dodge(0.2), size = 4) +
+  ylab("Lifespan (mean day of death)") + 
+  labs(x = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")")) +
+  singlefigtheme+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75))+  
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black")) +
+  theme(legend.position=c(0.70, 0.90), legend.box = "horizontal")+
+  labs(shape = "Pathogen dose", color = "Host genotype") 
+plotlifespan
+
+
+```
+
+
+#### Infection (and immune responses) and little effect on first day of reproduction 
+
+```{r plotting feeding rates with mean day of first reproduction,  echo = FALSE}
+plotdayfirstclutch <- inf2 %>% 
+  ggplot(aes(y = meandayfirstclutch, 
+             x = meanfeedrate, 
+             ymin = meandayfirstclutch - sefirstclutch,
+             ymax = meandayfirstclutch + sefirstclutch, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_point(position = position_dodge(0.2), size = 2)+
+  geom_errorbar(aes(ymin = meandayfirstclutch - sefirstclutch,
+                    ymax = meandayfirstclutch + sefirstclutch,
+                    width = 0)) +
+  geom_errorbarh(aes(xmin = meanfeedrate - sefeedrate, 
+                     xmax = meanfeedrate + sefeedrate,
+                     height = 0)) +
+  geom_point(position = position_dodge(0.2), size = 4) +
+  ylab("Day of first reproduction") + 
+  labs(x = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")")) +
+  singlefigtheme+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75))+  
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black")) +
+  theme(legend.position = "none")
+plotdayfirstclutch
+
+```
+
+
+```{r plotting spore yield (within-host pathogen density) and host growth,  echo = FALSE}
+plotgrowthyield <- inf2 %>% 
+  ggplot(aes(y = meanspores, 
+             x = meangrowth, 
+             ymin = meanspores - sespores,
+             ymax = meanspores + sespores, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_point(position = position_dodge(0.2), size = 5)+
+  geom_errorbar(aes(ymin = meanspores - sespores,
+                    ymax = meanspores + sespores,
+                    width = 0)) +
+  geom_errorbarh(aes(xmin = meangrowth - segrowth, 
+                     xmax = meangrowth + segrowth,
+                     height = 0)) +
+  geom_point(position = position_dodge(0.2), size = 5) +
+  labs(y = expression("Spore yield (spores host"^-1* "x 10"^3* ")"))+ 
+  labs(x = expression("Total growth (final - initial size, mm"^2*")")) +
+  singlefigtheme2+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75))+  
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black")) +
+  theme(legend.position = "none")
+```
+
+
+
+
+
+
+
+#### STATS SECTION #### 
+
+
+```{r stats section part 1, include = FALSE, echo = FALSE}
+total <- all.data.joined2  %>%
+  dplyr::filter(Technical_Replicate == "1") %>% 
+  dplyr::filter(!Infected_Uninfected %in% "DayZero") %>% # remove animals that die on set up due to user error
+  dplyr::filter(!Infected_Uninfected %in% "NA") %>%
+  dplyr::filter(!Sex %in% "M") %>% 
+  dplyr::filter(mean_feeding_rate > 0.00) ### remove negative feeding rates b/c they represent technical error
+  #dplyr::filter(!Infected_Uninfected %in% "Exposed") 
+  
+```
+
+
+
+```{r stats for table 1, echo = FALSE}
+#### Table 1: ####
+
+infected <- total %>% 
+  filter(Spore_level > 0, na.rm = TRUE)
+#filter(Genotype != "Midland 281")
+
+y <- with(infected, cbind(Infected, (Susceptible + Infected + Exposed)))
+
+
+modinf1 <- glm(y ~ Genotype*as.factor(Spore_level),
+             family = binomial,
+             data = infected) 
+
+modinf2 <- glm(y ~ Genotype
+              + as.factor(Spore_level),
+              family = binomial,
+              data = infected) 
+
+bbmle::AICctab(modinf1, modinf2)
+
+#### Table 1 ## ####
+#plot(modinf2)
+summary(modinf2)
+stats1 <- car::Anova(modinf2, type = 'III')
+stats1
+Term <- rownames(stats1)
+stats1 <- cbind(Term, stats1)
+autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+
+```
+
+
+
+
+```{r stats patterns across all genotypes,  echo = FALSE}
+#### Model: Across all genotypes does the probability of infection differ across feeding rates, final body size (surface area), spore levels  ? ####
+infected <- total %>% 
+  filter(Spore_level > 0, na.rm = TRUE)
+#filter(Genotype != "Midland 281")
+
+y <- with(infected, cbind(Infected, (Susceptible + Infected + Exposed)))
+
+
+#### Across all genotypes ####
+mod2m <- glm(y ~ mean_feeding_rate*Size_mm2
+             + as.factor(Spore_level),
+             family = binomial,
+             data = infected) 
+
+mod3m <- glm(y ~ mean_feeding_rate + Size_mm2,
+             family = binomial,
+             data = infected) 
+
+
+
+bbmle::AICctab(mod3m, mod2m)
+
+#### Table 4a ## ####
+#plot(mod3m)
+
+summary(mod3m)
+stats1 <- car::Anova(mod3m, type = 'III')
+stats1
+Term <- rownames(stats1)
+stats1 <- cbind(Term, stats1)
+autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+```
+
+
+
+#### Now, account for genotypic variation ####
+
+```{r stats, feeding rates and infection frequency - when accounting for genotypic differences,  echo = FALSE}
+
+mod2h <- glm(y ~ mean_feeding_rate*Size_mm2
+             + as.factor(Genotype)
+             + as.factor(Spore_level), 
+             family = binomial,
+             data = infected) 
+
+
+car::Anova(mod2h, test = "Wald")
+
+
+mod2i <- glm(y ~ mean_feeding_rate + Size_mm2
+             + as.factor(Genotype)
+             + as.factor(Spore_level), 
+             family = binomial,
+             data = infected) 
+
+car::Anova(mod2i, test = "Wald")
+
+
+
+bbmle::AICctab(mod2h, mod2i)
+
+car::Anova(mod2h, type = 'III')
+
+#plot(mod2j)
+stats1 <- car::Anova(mod2h, type = 'III')
+stats1
+Term <- rownames(stats1)
+stats1 <- cbind(Term, stats1)
+autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+
+```
+
+
+
+
+
+```{r stats Table 2 feeding rates and infectin stats,  echo = FALSE}
+#### Model: Does mean feeding rate differ across spore levels, genotype, and infection status? ####
+#### Full model - singular so doesn't converge.
+# mod1a <- glm(mean_feeding_rate ~ Genotype*Size_mm2*Infected_Uninfected*Spore_level, 
+#              family = gaussian(link = "log"),
+#              data = total) 
+# 
+# summary(mod1a)
+# car::Anova(mod1a, type = 'III')
+
+#### Next attempt at full model - interaction terms render the model singular, so do not include
+mod1b <- glm(mean_feeding_rate ~ Genotype*Size_mm2 + Infected_Uninfected + Spore_level,
+            family = gaussian(link = "log"),
+            data = total) 
+
+summary(mod1b)
+car::Anova(mod1b, type = 'III')
+car::Anova(mod1b, test = "LR")
+
+
+mod1c <- glm(mean_feeding_rate ~ Genotype + Size_mm2 + Infected_Uninfected + Spore_level,
+             family = gaussian(link = "log"),
+             data = total) 
+
+bbmle::AICctab(mod1b, mod1c)
+
+
+#plot(mod1c) 
+#### Table 2 ####
+summary(mod1c)
+stats1 <- car::Anova(mod1c, type = 'III')
+
+Term <- rownames(stats1)
+stats1 <- cbind(Term, stats1)
+autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+
+
+#### post hoc analysis ####
+marginal = emmeans(mod1c, ~ Infected_Uninfected|Genotype)
+pairs(marginal)
+```
+
+
+
+
+
+
+
+```{r stats Table 4a spore yield,  echo = FALSE}
+total <- total %>%
+  mutate(Spore_level_fct = factor(Spore_level))
+
+# Examine spore yield in animals that were actually infected
+
+totalpos <- total %>% 
+  filter(Spores_ul>0)
+
+#### Spore yield and Anorexia
+#### Patterns across all genotypes ####
+
+mod2k <- glm(Spores_ul ~ mean_feeding_rate 
+             + as.factor(Spore_level), 
+             data = total) 
+
+summary(mod2k)
+car::Anova(mod2k, type = 'III')
+aov(mod2k)
+
+modfeedspores1 <- glm(Spores_ul ~ mean_feeding_rate*Size_mm2 
+                     + Spore_level_fct,
+                     family = gaussian(link = "identity"),
+                     data = totalpos)
+
+car::Anova(modfeedspores1, type = 'III')
+
+
+modfeedspores2 <- glm(Spores_ul ~ mean_feeding_rate+Size_mm2 
+                     + Spore_level_fct*Final_Size_mm2,
+                     family = gaussian(link = "identity"),
+                     data = totalpos)
+
+car::Anova(modfeedspores2, type = 'III')
+
+modfeedspores3 <- glm(Spores_ul ~ mean_feeding_rate+Size_mm2 
+                      + Spore_level_fct+Final_Size_mm2,
+                      family = gaussian(link = "identity"),
+                      data = totalpos)
+
+
+modfeedspores4 <- glm(Spores_ul ~ Spore_level_fct+Final_Size_mm2,
+                      family = gaussian(link = "identity"),
+                      data = totalpos)
+
+
+car::Anova(modfeedspores4, type = 'III')
+
+
+AIC(modfeedspores1, modfeedspores2, modfeedspores3, modfeedspores4)
+
+
+
+#### Table 4a ####
+#plot(modfeedsporesb)
+# summary(modfeedsporesb)
+# stats1 <- car::Anova(modfeedsporesb, type = 'III')
+# stats1
+# Term <- rownames(stats1)
+# stats1 <- cbind(Term, stats1)
+# autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+```
+
+
+
+
+
+
+
+#### Table 4b Spore yield ####
+```{r stats Table 4b spore yield,  echo = FALSE, warning = FALSE}
+
+# Examine spore yield in animals that were actually infected
+
+total <- total %>%
+  mutate(Spore_level_fct = factor(Spore_level))
+
+
+totalpos <- total %>% 
+  filter(Spores_ul>0)
+
+modfeedspores <- glm(Spores_ul ~ mean_feeding_rate*Size_mm2
+                  + Spore_level_fct
+                  + Final_Size_mm2
+                  + Genotype,
+                  family = gaussian(link = "identity"),
+                  data = totalpos)
+
+car::Anova(modfeedspores, type = 'III')
+
+
+
+modfeedsporesb <- glm(Spores_ul ~ mean_feeding_rate + Size_mm2 
+                     + Spore_level_fct
+                     + Final_Size_mm2
+                     + Genotype,
+                     family = gaussian(link = "identity"),
+                     data = totalpos)
+
+car::Anova(modfeedsporesb, type = 'III')
+
+
+
+modfeedsporesc <- glm(Spores_ul ~ mean_feeding_rate + Size_mm2 
+                      + Spore_level_fct
+                      + Genotype,
+                      family = gaussian(link = "identity"),
+                      data = totalpos)
+
+car::Anova(modfeedsporesc, type = 'III')
+
+
+
+
+modfeedsporese <- glm(Spores_ul ~ mean_feeding_rate
+                      + Spore_level_fct
+                      + Genotype,
+                      family = gaussian(link = "identity"),
+                      data = total)
+
+car::Anova(modfeedsporese, type = 'III')
+
+modfeedsporesf <- glm(Spores_ul ~ Spore_level_fct
+                      + Genotype,
+                      family = gaussian(link = "identity"),
+                      data = total)
+
+car::Anova(modfeedsporesf, type = 'III')
+
+
+# 
+# bbmle::AICctab(modfeedspores, modfeedsporesb, modfeedsporesc, 
+#                modfeedsporese,  modfeedsporesf)
+
+
+
+
+#### Table 4b ####
+#plot(modfeedsporesb)
+summary(modfeedsporesb)
+stats1 <- car::Anova(modfeedsporesb, type = 'III')
+stats1
+Term <- rownames(stats1)
+stats1 <- cbind(Term, stats1)
+autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+
+
+#### post hoc analysis ####
+library(emmeans)
+marginal = emmeans(modfeedsporesb, ~ Genotype|Spore_level_fct)
+pairs(marginal)
+```
+
+
+
+
+#### Susceptibility and Spore yield
+```{r stats susceptibilty and spore yield,  echo = FALSE, warnings = FALSE}
+
+with(inf1, cor.test(probinf, meanspores*finalsize + Spore_level, method ="pearson"))
+
+
+
+library(MASS)
+library(pscl)
+require(pscl)
+
+
+total <- all.data.joined2  %>%
+  dplyr::filter(Technical_Replicate == "1") %>% 
+  dplyr::filter(!Infected_Uninfected %in% "DayZero") %>% # remove animals that die on set up due to user error
+  dplyr::filter(!Infected_Uninfected %in% "NA") %>%
+  dplyr::filter(!Sex %in% "M") %>% 
+  dplyr::filter(mean_feeding_rate > 0.00) ### remove negative feeding rates b/c they represent technical error
+#dplyr::filter(!Infected_Uninfected %in% "Exposed") 
+
+total <- total %>%
+  mutate(Spore_level_fct = factor(Spore_level))
+
+
+total2 <- total[!complete.cases(total), ]
+
+
+#### Estimate Population Distributions ####
+# Population dist of Pop A
+library(fitdistrplus)
+fitdistrplus::descdist(as.numeric(na.omit(total2$Total_Fecundity),
+                    use.names = F),
+         boot = 1000, discrete = T)
+
+with(total, hist(Total_Fecundity))
+
+
+pois.fit <- glm(formula = Total_Fecundity ~ Total_Growth
+                + Genotype
+                + Spore_level_fct 
+                + Infected_Uninfected,
+                family = poisson(link = "log"),
+                data = total)
+
+nb.fit <- glm.nb(formula = Total_Fecundity ~ Total_Growth 
+                 + Genotype
+                 + Spore_level_fct 
+                 + Infected_Uninfected,
+                 data = total)
+
+# ZIP.fit <- zeroinfl(formula = Total_Fecundity ~  Total_Growth 
+#                     + Genotype 
+#                     + Spore_level_fct 
+#                     + Infected_Uninfected,
+#                     data = total,
+#                     dist = "poisson", # default log link
+#                     link = "logit") # for zero infl link
+# 
+# ZINB.fit <- zeroinfl(formula = Total_Fecundity ~ Total_Growth 
+#                      + Genotype 
+#                      + Spore_level_fct 
+#                      + Infected_Uninfected,
+#                      data = total,
+#                      dist = "negbin", # default log link
+#                      link = "logit") # for zero infl link
+
+
+bbmle::AICctab(pois.fit, nb.fit)
+
+
+nb.fit1 <- glm.nb(formula = Total_Fecundity ~ Total_Growth
+                 + Genotype
+                 + Infected_Uninfected,
+                 data = total)
+
+bbmle::AICctab(pois.fit, nb.fit, nb.fit1)
+anova(nb.fit1, test = "Chisq")
+
+
+
+#plot(nb.fit1)
+stats1 <- car::Anova(nb.fit1, type = 'III')
+Term <- rownames(stats1)
+stats1 <- cbind(Term, stats1)
+autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+
+```
+
+
+
+
+```{r stats host growth rates and fitness,  echo = FALSE}
+#### Host GROWTH ####
+
+#### Estimate Population Distributions ####
+# Population dist of Pop A
+library(fitdistrplus)
+fitdistrplus::descdist(as.numeric(na.omit(inf1$meanfitnes),
+                                  use.names = F),
+                       boot = 1000, discrete = T)
+
+with(inf1, hist(meanfitnes))
+
+
+pois.fit <- glm(formula = meanfitnes ~ meangrowth
+                + Genotype
+                + Spore_level 
+                + probinf,
+                family = poisson(link = "log"),
+                data = inf1)
+
+nb.fit <- glm.nb(formula = meanfitnes ~ meangrowth
+                 + Genotype
+                 + Spore_level 
+                 + probinf,
+                 data = inf1)
+
+nb.fit1 <- glm.nb(formula = meanfitnes ~ meangrowth
+                 + Genotype
+                 + Spore_level
+                 + probinf
+                 + Spore_level*Genotype,
+                 data = inf1)
+
+ZIP.fit <- zeroinfl(formula = meanfitnes ~  meangrowth 
+                    + Genotype 
+                    + Spore_level 
+                    + probinf,
+                    data = inf1,
+                    dist = "poisson", # default log link
+                    link = "logit") # for zero infl link
+
+ZINB.fit <- zeroinfl(formula = meanfitnes ~ meangrowth 
+                     + Genotype 
+                     + Spore_level 
+                     + probinf,
+                     data = inf1,
+                     dist = "negbin", # default log link
+                     link = "logit") # for zero infl link
+
+
+bbmle::AICctab(pois.fit, nb.fit, nb.fit1)
+
+
+
+#plot(nb.fit1)
+stats1 <- car::Anova(nb.fit1, type = 'III')
+Term <- rownames(stats1)
+stats1 <- cbind(Term, stats1)
+autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+```
+
+
+
+```{r stats host growth rates and infection frequency,  echo = FALSE}
+#### HOST GROWTH ####
+
+#### Estimate Population Distributions ####
+# Population dist of Pop A
+library(fitdistrplus)
+fitdistrplus::descdist(as.numeric(na.omit(inf1$meangrowth),
+                                  use.names = F),
+                       boot = 1000, discrete = T)
+
+
+
+modgrowth1 <- glm(meangrowth ~ probinf
+                    + Spore_level + Genotype,
+                  family = gaussian(link = "identity"),
+                  data = inf1)
+
+car::Anova(modgrowth1, type = 'III')
+
+
+modgrowth2 <- glm(meangrowth ~ probinf + Spore_level*Genotype,
+                  family = gaussian(link = "identity"),
+                  data = inf1)
+
+car::Anova(modgrowth2, type = 'III')
+
+bbmle::AICctab(modgrowth1, modgrowth2)
+
+
+plot(modgrowth1)
+stats1 <- car::Anova(modgrowth1, type = 'III')
+Term <- rownames(stats1)
+stats1 <- cbind(Term, stats1)
+
+autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+
+
+#### post hoc analysis host growth ####
+marginal = emmeans(modgrowth1, ~ Genotype)
+pairs(marginal)
+
+```
+
+
+
+```{r stats host survival, echo = FALSE}
+
+#### HOST SURVIVAL ####
+
+#### Estimate Population Distributions ####
+# Population dist of Pop A
+library(fitdistrplus)
+fitdistrplus::descdist(as.numeric(na.omit(inf1$meandaydeath),
+                                  use.names = F),
+                       boot = 1000, discrete = T)
+
+with(inf1, hist(meandaydeath))
+
+
+modsurv1 <- glm(meandaydeath ~ probinf
+                + Spore_level + Genotype,
+                  family = gaussian(link = "identity"),
+                  data = inf1)
+
+car::Anova(modsurv1, type = 'III')
+
+
+modsurv2 <- glm(meandaydeath ~ probinf + Spore_level*Genotype,
+                  family = gaussian(link = "identity"),
+                  data = inf1)
+
+car::Anova(modsurv2, type = 'III')
+
+bbmle::AICctab(modsurv1, modsurv2)
+
+
+#plot(modsurv1)
+stats1 <- car::Anova(modsurv1, type = 'III')
+Term <- rownames(stats1)
+stats1 <- cbind(Term, stats1)
+autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+
+
+#### post hoc analysis host growth ####
+marginal = emmeans(modsurv1, ~ probinf|Genotype)
+pairs(marginal)
+
+```
+
+
+
+
+
+
+```{r stats feeding rates and infection frequency across all genotypes,  echo = FALSE}
+#### Across all genotypes: Susceptibility and Anorexia/Hyperphagia
+modfeedinf <- glm(meanfeedrate ~ probinf+finalsize 
+                  + Spore_level,
+                  family = gaussian(link = "identity"),
+                  data = inf1)
+
+car::Anova(modfeedinf, type = 'III')
+```
+
+
+
+
+
+```{r stats feeding rates and infection frequency, echo = FALSE}
+#### Susceptibility and Anorexia/Hyperphagia
+modfeedinf <- glm(meanfeedrate ~ probinf*finalsize 
+                  + Spore_level
+                  + Genotype,
+                  family = gaussian(link = "identity"),
+                  data = inf1)
+
+car::Anova(modfeedinf, type = 'III')
+
+
+modfeedinfb <- glm(meanfeedrate ~ probinf*finalsize 
+                   + Genotype,
+                   family = gaussian(link = "identity"),
+                   data = inf1)
+
+car::Anova(modfeedinfb, type = 'III')
+
+
+
+modfeedinfc <- glm(meanfeedrate ~ probinf*finalsize 
+                   + Spore_level
+                   + Genotype,
+                   family = gaussian(link = "identity"),
+                   data = inf1)
+
+car::Anova(modfeedinfc, type = 'III')
+
+
+modfeedinfd <- glm(meanfeedrate ~ probinf*finalsize 
+                   + Genotype,
+                   family = gaussian(link = "log"),
+                   data = inf1)
+
+car::Anova(modfeedinfd, type = 'III')
+
+
+
+bbmle::AICctab(modfeedinf, modfeedinfb, modfeedinfc, modfeedinfd)
+
+
+#plot(modfeedinfb)
+summary(modfeedinfb)
+stats1 <- car::Anova(modfeedinfb, type = 'III')
+stats1
+Term <- rownames(stats1)
+stats1 <- cbind(Term, stats1)
+autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+```
+
+
+
+
+
+
+
