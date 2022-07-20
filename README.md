@@ -12,5 +12,5 @@ Data collected:
                 size at end of exp. (20 days old),
                 offspring (6 days old until 20 days old)
                 active phenoloxidase (20 days old)
-                spore yield (units?)
+                spore yield
 
