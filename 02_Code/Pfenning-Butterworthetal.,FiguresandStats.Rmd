@@ -911,7 +911,21 @@ Figure6
 
 
 
-### Appendix figures ###
+
+
+
+
+
+
+
+
+
+
+
+\newpage
+
+
+#### Appendix figures 
 
 ```{r plotting host fitness and within-host pathogen density (spore yield),  echo = FALSE}
 
@@ -934,15 +948,13 @@ plotfityield <- inf2 %>%
   labs(x = expression("Spore yield (spores host"^-1* " 10"^3* ")"))+ 
   labs(y = expression("Total reproduction (host" ^-1*")")) +
   singlefigtheme2+
-  theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", 
+  theme(panel.border = element_rect(color = "black", 
                                     fill = NA, size = 0.75))+  
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
-        axis.line = element_line(colour = "black")) +
-  theme(legend.position = "none")
-
+        axis.line = element_line(colour = "black")) 
+plotfityield
 
 ```
 
@@ -953,8 +965,7 @@ plotfityield <- inf2 %>%
 
 
 
-#### Anti-growth resistance came at the cost of reduced lifespan, but 
-#### otherwise, infection had little effect on lifespan (at least over the limited time frame captured in this assay - a great avenue for future exploration)
+Anti-growth resistance came at the cost of reduced lifespan, but otherwise, infection had little effect on lifespan (at least over the limited time frame captured in this assay - a great avenue for future exploration)
 
 
 ```{r plotting feeding rates and host longevity (mean day of death),  echo = FALSE}
@@ -987,12 +998,10 @@ plotlifespan <- inf2 %>%
   theme( legend.box = "horizontal")+
   labs(shape = "Pathogen dose", color = "Host genotype") 
 plotlifespan
-
-
 ```
 
 
-#### Infection (and immune responses) and little effect on first day of reproduction 
+Infection (and immune responses) and little effect on first day of reproduction 
 
 ```{r plotting feeding rates with mean day of first reproduction,  echo = FALSE}
 plotdayfirstclutch <- inf2 %>% 
@@ -1059,9 +1068,9 @@ plotgrowthyield <- inf2 %>%
 
 
 
+\newpage
 
-
-#### STATS SECTION #### 
+#### STATS SECTION
 
 
 ```{r stats section part 1, include = FALSE, echo = FALSE}
@@ -1076,7 +1085,7 @@ total <- all.data.joined2  %>%
 ```
 
 
-
+# Table 1
 ```{r stats for table 1, echo = FALSE}
 #### Table 1: ####
 
@@ -1147,8 +1156,8 @@ autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
 ```
 
 
-
-#### Now, account for genotypic variation ####
+\newpage
+# Now, account for genotypic variation
 
 ```{r stats, feeding rates and infection frequency - when accounting for genotypic differences,  echo = FALSE}
 
@@ -1188,7 +1197,7 @@ autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
 
 
 
-
+# Table 2
 ```{r stats Table 2 feeding rates and infectin stats,  echo = FALSE}
 #### Model: Does mean feeding rate differ across spore levels, genotype, and infection status? ####
 #### Full model - singular so doesn't converge.
@@ -1235,7 +1244,7 @@ pairs(marginal)
 
 
 
-
+# Table4a
 
 ```{r stats Table 4a spore yield,  echo = FALSE}
 total <- total %>%
@@ -1306,7 +1315,7 @@ AIC(modfeedspores1, modfeedspores2, modfeedspores3, modfeedspores4)
 
 
 
-#### Table 4b Spore yield ####
+# Table 4b Spore yield 
 ```{r stats Table 4b spore yield,  echo = FALSE, warning = FALSE}
 
 # Examine spore yield in animals that were actually infected
@@ -1392,8 +1401,8 @@ pairs(marginal)
 
 
 
-
-#### Susceptibility and Spore yield
+\newpage
+#Susceptibility and Spore yield
 ```{r stats susceptibilty and spore yield,  echo = FALSE, warnings = FALSE}
 
 with(inf1, cor.test(probinf, meanspores*finalsize + Spore_level, method ="pearson"))
@@ -1600,25 +1609,22 @@ recsurv <- survival::Surv(inf1$meandaydeath, inf1$censored)
 # survfit fits survival curves with various methods
 # Kaplan-Meier is most common, so use that if in doubt
 
-fit.KM <- survival::survfit(recsurv ~ 1, type = "kaplan-meier", conf.type = "log-log")
-fit.FM <- survival::survfit(recsurv ~ 1, type = "fleming-harrington", conf.type = "log-log")
-fit.FM2<- survival::survfit(recsurv ~ 1, type = "fh2", conf.type = "log-log")
+#fit.KM <- survival::survfit(recsurv ~ 1, type = "kaplan-meier", conf.type = "log-log")
+#fit.FM <- survival::survfit(recsurv ~ 1, type = "fleming-harrington", conf.type = "log-log")
+#fit.FM2<- survival::survfit(recsurv ~ 1, type = "fh2", conf.type = "log-log")
 
 # print restricted mean
 # # of events = the # of animals that died
-print(fit.KM, print.rmean = TRUE)
+#print(fit.KM, print.rmean = TRUE)
 
 # plot cummulative harzard, and other mods as
 # what's the percentage of animals that die?
-plot(fit.KM, fun = "cumhaz")
+#plot(fit.KM, fun = "cumhaz")
 
 # cumulative events (f(y)=1-y)
-plot(fit.KM, fun = "event")
+#plot(fit.KM, fun = "event")
 
 #### Survival Analyses ####
-
-par(mfrow = c(2,2))
-par(las = 1)
 
 # Now, examine if any of the genotypes differ and by spores
 inf1$grouped <- with(inf1, interaction(Spore_level, Infected_Uninfected))
@@ -1639,7 +1645,6 @@ attach(geno2)
 recM252 <-survival::Surv(meandaydeath, censored)
 fit252 <- with(geno2, fit <- survival::survfit(recM252 ~ geno2$grouped, type = "kaplan-meier", conf.type = "log-log"))
 plot(fit252,col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
-legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
 #Midland 281
 geno3 <- with(inf1, subset(inf1, Genotype == "Midland 281"))
@@ -1648,7 +1653,6 @@ attach(geno3)
 recM281 <- survival::Surv(meandaydeath, censored)
 fit281 <- with(geno3, fit <- survival::survfit(recM281 ~ geno3$grouped, type = "kaplan-meier", conf.type = "log-log"))
 plot(fit281, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M281", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
-legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
 #Standard
 geno4 <- with(inf1, subset(inf1, Genotype == "Standard"))
@@ -1656,9 +1660,11 @@ attach(geno4)
 recSTD <- survival::Surv(meandaydeath, censored)
 fitSTD <- with(geno4, fit <- survival::survfit(recSTD ~ geno4$grouped, type = "kaplan-meier", conf.type = "log-log"))
 plot(fitSTD, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "STD",  xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
-legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
+```
 
+\newpage
+```{r stats_survival, echo = FALSE}
 #### Estimate Population Distributions ####
 # Population dist of Pop A
 library(fitdistrplus)
@@ -1696,7 +1702,6 @@ autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
 #### post hoc analysis host growth ####
 marginal = emmeans(modsurv1, ~ probinf|Genotype)
 pairs(marginal)
-
 ```
 
 
