@@ -40,6 +40,7 @@ library(pscl)
 library(flextable)
 library(betareg)
 library(emmeans)
+library(survival)
 ```
 
 
@@ -128,6 +129,7 @@ inf1 <- all.data.joined2  %>%
          sefitness = sd(Total_Offspring, na.rm = TRUE)/sqrt(n()),
          meandaydeath = mean(TimeTillDeathDays, na.rm = T),
          sedeathday = sd(TimeTillDeathDays, na.rm = TRUE)/sqrt(n()),
+         censored = mean(Censured, na.rm = T),
          meanfeedrate = mean(mean_feeding_rate, na.rm = T),
          sefeedrate = sd(mean_feeding_rate, na.rm = TRUE)/sqrt(n()),
          totInf  = sum(Infected, na.rm = T),
@@ -150,11 +152,9 @@ inf1 <- all.data.joined2  %>%
                 meanfitnes, sefitness,
                 meaninf, stdevDinf,  
                 meanspores, sespores,
-                meandaydeath, sedeathday,
+                meandaydeath, sedeathday, censored,
                 meanfeedrate, sefeedrate) %>%
   distinct() %>% as.data.frame()
-
-
 ```
 
 
@@ -201,7 +201,6 @@ inf2 <- all.data.joined2  %>%
                 meandaydeath, sedeathday,
                 meanfeedrate, sefeedrate) %>%
   distinct() %>% as.data.frame()
-
 ```
 
 
@@ -232,8 +231,6 @@ genotype = c("A45", "A45", "A45",
 
 genolabel <- c("Genotype 4 ('A45')", "Genotype 3 ('Midland 252')", "Genotype 2 ('Midland 281')", "Genotype 1 ('Standard')") 
 names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
-
-
 ```
 
 
@@ -242,9 +239,6 @@ names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
 
 
 ```{r plotting prevalence,  echo = FALSE}
-
-
-
 previnf1 <- 
   ggplot(inf1 %>% 
            filter( !Spore_level %in% "0") %>% # removing this level b/c need to jitter the other points...but this creates false-positives in the zero spore levels.
@@ -387,7 +381,6 @@ spores1 <-
   scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))
 
 
-
 spores2 <- 
   ggplot(inf1 %>% 
            filter(Genotype=="Midland 252"), aes(x = Spore_level, color = as.factor(Spore_level), y = meanspores)) +
@@ -408,7 +401,6 @@ spores2 <-
         legend.text = element_text(size = 8),
         strip.text.x = element_text(size = 12))+
   scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))
-
 
 
 spores3 <- 
@@ -433,7 +425,6 @@ spores3 <-
   scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))
 
 
-
 spores4 <- 
   ggplot(inf1 %>% 
            filter(Genotype=="Standard"), aes(x = Spore_level, color = as.factor(Spore_level),  y = meanspores)) +
@@ -456,11 +447,8 @@ spores4 <-
 
 
 
-
 # combine figures
 spores1 + spores2 + spores3 + spores4
-
-#### 
 
 ```
 
@@ -477,7 +465,6 @@ spores1 + spores2 + spores3 + spores4
 #### The focus here is on animals that were either unexposed or infected, thus we will exclude animals that were exposed but where infections were either cleared or too low to detect.
 
 ```{r plotting feeding rates,  echo = FALSE}
-
 
 feed1 <- 
   ggplot(inf1 %>% 
@@ -1607,6 +1594,70 @@ pairs(marginal)
 ```{r stats host survival, echo = FALSE}
 
 #### HOST SURVIVAL ####
+recsurv <- survival::Surv(inf1$meandaydeath, inf1$censored)
+recsurv
+
+# survfit fits survival curves with various methods
+# Kaplan-Meier is most common, so use that if in doubt
+
+fit.KM <- survival::survfit(recsurv ~ 1, type = "kaplan-meier", conf.type = "log-log")
+fit.FM <- survival::survfit(recsurv ~ 1, type = "fleming-harrington", conf.type = "log-log")
+fit.FM2<- survival::survfit(recsurv ~ 1, type = "fh2", conf.type = "log-log")
+
+# print restricted mean
+# # of events = the # of animals that died
+print(fit.KM, print.rmean = TRUE)
+
+# plot cummulative harzard, and other mods as
+# what's the percentage of animals that die?
+plot(fit.KM, fun = "cumhaz")
+
+# cumulative events (f(y)=1-y)
+plot(fit.KM, fun = "event")
+
+#### Survival Analyses ####
+
+par(mfrow = c(2,2))
+par(las = 1)
+
+# Now, examine if any of the genotypes differ and by spores
+inf1$grouped <- with(inf1, interaction(Spore_level, Infected_Uninfected))
+
+#A45
+geno1 <- with(inf1, subset(inf1, Genotype == "A45"))
+attach(geno1)
+# added the `` because using read_csv earlier slightly changed the column names, and now you have some spaces in the name, so had to use ``
+recA45 <- survival::Surv(meandaydeath, censored)
+fitA45 <- with(geno1, fit <- survival::survfit(recA45 ~ geno1$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fitA45, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "A45", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
+
+# Midland 252
+geno2 <- with(inf1, subset(inf1, Genotype == "Midland 252"))
+attach(geno2)
+
+recM252 <-survival::Surv(meandaydeath, censored)
+fit252 <- with(geno2, fit <- survival::survfit(recM252 ~ geno2$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fit252,col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
+
+#Midland 281
+geno3 <- with(inf1, subset(inf1, Genotype == "Midland 281"))
+attach(geno3)
+# and again, use the ``
+recM281 <- survival::Surv(meandaydeath, censored)
+fit281 <- with(geno3, fit <- survival::survfit(recM281 ~ geno3$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fit281, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M281", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
+
+#Standard
+geno4 <- with(inf1, subset(inf1, Genotype == "Standard"))
+attach(geno4)
+recSTD <- survival::Surv(meandaydeath, censored)
+fitSTD <- with(geno4, fit <- survival::survfit(recSTD ~ geno4$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fitSTD, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "STD",  xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
+
 
 #### Estimate Population Distributions ####
 # Population dist of Pop A
