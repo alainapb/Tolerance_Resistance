@@ -1,9 +1,9 @@
 ---
 title: "Pfenning-ButterworthFiguresandStats"
 output:
+  pdf_document: default
   html_document: default
   word_document: default
-  pdf_document: default
 ---
 
 ```{r setup, include = FALSE, warning = FALSE}
@@ -912,6 +912,7 @@ Figure6
 
 
 ### Appendix figures ###
+
 ```{r plotting host fitness and within-host pathogen density (spore yield),  echo = FALSE}
 
 
@@ -983,7 +984,7 @@ plotlifespan <- inf2 %>%
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
         axis.line = element_line(colour = "black")) +
-  theme(legend.position=c(0.70, 0.90), legend.box = "horizontal")+
+  theme( legend.box = "horizontal")+
   labs(shape = "Pathogen dose", color = "Host genotype") 
 plotlifespan
 
@@ -1595,7 +1596,6 @@ pairs(marginal)
 
 #### HOST SURVIVAL ####
 recsurv <- survival::Surv(inf1$meandaydeath, inf1$censored)
-recsurv
 
 # survfit fits survival curves with various methods
 # Kaplan-Meier is most common, so use that if in doubt
