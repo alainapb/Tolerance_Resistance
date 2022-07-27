@@ -91,19 +91,18 @@ attach(geno2)
 
 recM252 <-survival::Surv(meandaydeath, censored)
 fit252 <- with(geno2, fit <- survival::survfit(recM252 ~ geno2$grouped, type = "kaplan-meier", conf.type = "log-log"))
-plot(fit252,col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+plot(fit252,col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "Midland 252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
 ```
 
 ## Survival Analyses Continued
 ```{r continued, echo = FALSE}
-
 #Midland 281
 geno3 <- with(inf1, subset(inf1, Genotype == "Midland 281"))
 attach(geno3)
 
 recM281 <- survival::Surv(meandaydeath, censored)
 fit281 <- with(geno3, fit <- survival::survfit(recM281 ~ geno3$grouped, type = "kaplan-meier", conf.type = "log-log"))
-plot(fit281, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "M281", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+plot(fit281, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "Midland 281", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
 legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
 
 #Standard
@@ -112,9 +111,9 @@ attach(geno4)
 
 recSTD <- survival::Surv(meandaydeath, censored)
 fitSTD <- with(geno4, fit <- survival::survfit(recSTD ~ geno4$grouped, type = "kaplan-meier", conf.type = "log-log"))
-plot(fitSTD, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "STD",  xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+plot(fitSTD, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "Standard",  xlab= "Days since exposure", ylab = "Survival")
 ```
-
+In Standard, there was only one individual that was exposed to 150 sp/ml that did not get infected and that individual died eleven days after the exposure (blue line). 
 
 ## Impacts of Feeding Behavior
 ```{r plotting feeding rates and host longevity (mean day of death),  echo = FALSE}
