@@ -11,8 +11,8 @@
 #### Step 3: Calculates the Sarnell and Wilson feeding rate per animal
 #### Step 4: Takes the per-individual (technical replicates) average for feeding rates
 #### Step 5: Removes any negative feeding rates (as this represents technical errors or non-feeding inividuals)
-#### Step 6: Caclulates the mean feeding rate per treatment (in this case, genotype)
-#### Last updateD: 22 October 2019 JLH
+#### Step 6: Calculates the mean feeding rate per treatment (in this case, genotype)
+#### Last updated:  October 2019 JLH
 
 #### I removed A45_0 # 13 from the AJ2 csv file....couldn't recall how to exclude based on multiple variables in R
 #### I removed STD_0 # 11 from the AJ csv file....couldn't recall how to exclude based on multiple variables in R
