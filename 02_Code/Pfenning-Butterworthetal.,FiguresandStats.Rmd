@@ -1342,11 +1342,10 @@ car::Anova(mod2i, test = "Wald")
 
 bbmle::AICctab(mod2h, mod2i)
 
-car::Anova(mod2h, type = 'III')
+car::Anova(mod2i, type = 'III')
 
 #Table 4b
-#plot(mod2j)
-stats1 <- car::Anova(mod2h, type = 'III')
+stats1 <- car::Anova(mod2i, type = 'III')
 stats1
 Term <- rownames(stats1)
 stats1 <- cbind(Term, stats1)
@@ -1361,18 +1360,11 @@ total <- total %>%
 # Examine spore yield in animals that were actually infected
 
 totalpos <- total %>% 
+  filter(Genotype != 'Midland 281')%>%
   filter(Spores_ul>0)
 
 #### Spore yield and Anorexia
 #### Patterns across all genotypes ####
-
-mod2k <- glm(Spores_ul ~ mean_feeding_rate 
-             + as.factor(Spore_level), 
-             data = total) 
-
-summary(mod2k)
-car::Anova(mod2k, type = 'III')
-aov(mod2k)
 
 modfeedspores1 <- glm(Spores_ul ~ mean_feeding_rate*Size_mm2 
                      + Spore_level_fct,
@@ -1408,81 +1400,73 @@ AIC(modfeedspores1, modfeedspores2, modfeedspores3, modfeedspores4)
 
 
 #### Table ####
-#plot(modfeedsporesb)
-# summary(modfeedsporesb)
-# stats1 <- car::Anova(modfeedsporesb, type = 'III')
-# stats1
-# Term <- rownames(stats1)
-# stats1 <- cbind(Term, stats1)
-# autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
+ summary(modfeedspores4)
+ stats1 <- car::Anova(modfeedspores4, type = 'III')
+ stats1
+ Term <- rownames(stats1)
+ stats1 <- cbind(Term, stats1)
+ autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
 ```
 
 # Table 4b_2 Spore yield
 
-```{r stats Table 5b spore yield,  echo = FALSE, warning = FALSE}
+```{r stats Table 4b spore yield,  echo = FALSE, warning = FALSE}
 
 # Examine spore yield in animals that were actually infected
 
-total <- total %>%
-  mutate(Spore_level_fct = factor(Spore_level))
-
-
-totalpos <- total %>% 
-  filter(Spores_ul>0)
-
-modfeedspores <- glm(Spores_ul ~ mean_feeding_rate*Size_mm2
+modfeedspores <- glm(Spores_ul ~ mean_feeding_rate*Size_mm2 
                   + Spore_level_fct
-                  + Final_Size_mm2
-                  + Genotype,
+                  + Genotype
+                  + Final_Size_mm2,
                   family = gaussian(link = "identity"),
                   data = totalpos)
 
 car::Anova(modfeedspores, type = 'III')
 
 
-modfeedsporesb <- glm(Spores_ul ~ mean_feeding_rate + Size_mm2 
+modfeedsporesb <- glm(Spores_ul ~ mean_feeding_rate + Size_mm2
                      + Spore_level_fct
-                     + Final_Size_mm2
-                     + Genotype,
+                     + Genotype
+                     + Final_Size_mm2,
                      family = gaussian(link = "identity"),
                      data = totalpos)
 
 car::Anova(modfeedsporesb, type = 'III')
 
 
-modfeedsporesc <- glm(Spores_ul ~ mean_feeding_rate + Size_mm2 
+modfeedsporesc <- glm(Spores_ul ~  Size_mm2 
                       + Spore_level_fct
-                      + Genotype,
+                      + Genotype
+                      + Final_Size_mm2,
                       family = gaussian(link = "identity"),
                       data = totalpos)
 
 car::Anova(modfeedsporesc, type = 'III')
 
 
-modfeedsporese <- glm(Spores_ul ~ mean_feeding_rate
-                      + Spore_level_fct
+modfeedsporesd <- glm(Spores_ul ~ Spore_level_fct
+                      + Genotype
+                      + Final_Size_mm2,
+                      family = gaussian(link = "identity"),
+                      data = totalpos)
+
+car::Anova(modfeedsporesd, type = 'III')
+
+
+modfeedsporese <- glm(Spores_ul ~ Spore_level_fct
                       + Genotype,
                       family = gaussian(link = "identity"),
-                      data = total)
+                      data = totalpos)
 
 car::Anova(modfeedsporese, type = 'III')
 
-modfeedsporesf <- glm(Spores_ul ~ Spore_level_fct
-                      + Genotype,
-                      family = gaussian(link = "identity"),
-                      data = total)
 
-car::Anova(modfeedsporesf, type = 'III')
-
-# 
-#bbmle::AICctab(modfeedspores, modfeedsporesb, modfeedsporesc, 
-#                modfeedsporese,  modfeedsporesf)
+AIC(modfeedspores, modfeedsporesb, modfeedsporesc, modfeedsporesd,  modfeedsporese)
 
 
-#### Table 5b ####
-#plot(modfeedsporesb)
-summary(modfeedsporesb)
-stats1 <- car::Anova(modfeedsporesb, type = 'III')
+#### Table 4b ####
+summary(modfeedsporesd)
+stats1 <- car::Anova(modfeedsporesd, type = 'III')
 stats1
 Term <- rownames(stats1)
 stats1 <- cbind(Term, stats1)
@@ -1490,8 +1474,7 @@ autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
 
 
 #### post hoc analysis ####
-library(emmeans)
-marginal = emmeans(modfeedsporesb, ~ Genotype|Spore_level_fct)
+marginal = emmeans(modfeedsporesd, ~ Genotype|Spore_level_fct)
 pairs(marginal)
 ```
 
@@ -1598,7 +1581,7 @@ modfeedinf <- glm(meanfeedrate ~ probinf*finalsize
                   + Spore_level
                   + Genotype,
                   family = gaussian(link = "identity"),
-                  data = inf1)
+                  data = inf1
 
 car::Anova(modfeedinf, type = 'III')
 
