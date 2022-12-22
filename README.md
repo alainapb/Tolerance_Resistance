@@ -6,11 +6,10 @@ Experiment Run by Alaina Pfenning-Butterworth and Jessica Hite assisted by Rache
 
 Data collected: 
                 feeding rate at exposure (6 days old), 
-                size at exposure, 
+                size at exposure (6 days old), 
                 infection status, 
                 infection intensity, 
-                size at end of exp. (20 days old),
+                size at end of exp (20 days old),
                 offspring (6 days old until 20 days old)
-                active phenoloxidase (20 days old)
-                spore yield
+                spore yield (20 days old)
 
