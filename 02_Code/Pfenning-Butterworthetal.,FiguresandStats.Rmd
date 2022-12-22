@@ -209,6 +209,8 @@ inf2 <- all.data.joined2  %>%
 
 left_join(prev, inf2, by=c('Genotype','Spore_level'))->inf3
 
+saveRDS(inf3, "inf3.RDS")
+
 ```
 
 #### Plot mean Feeding with mean spores
@@ -464,7 +466,7 @@ spores1 + spores2 + spores3 + spores4
 
 ## Showing results in this layout to emphasize the difference among the genotypes
 
-*Note, this requires adjusting the y-axis since one genotype consumes
+\*Note, this requires adjusting the y-axis since one genotype consumes
 much more relative to the others. Grey shading emphasizes the comparison
 to pathogen-free environments. The focus here is on animals that were
 either unexposed or infected, thus we will exclude animals that were
@@ -589,9 +591,7 @@ ggsave("FeedingRates.png", Fig3, height = 7, width = 12, dpi = 600)
 ```
 
 Most susceptible genotype showed strongest illness mediated anorexia
-relative to less susceptible genotypes. 
-
-
+relative to less susceptible genotypes.
 
 ```{r plotting feeding rates with host growth rates, echo = FALSE}
 plotgrowth <- inf3 %>% 
@@ -745,10 +745,14 @@ ggplot(data = filter(inf3, Genotype != "Midland 281"), aes(y = probinf*100,
   scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
   scale_x_continuous(limits = c(0.05, 0.65), breaks = c(0.10, 0.35, 0.60))
 
+inf3 %>% 
+  filter(Genotype != "Midland 281") %>%
+  glm(mean)
 
 ```
 
-#Feeding and Susceptibility, Spore Yield, Fitness, and Growth
+\#Feeding and Susceptibility, Spore Yield, Fitness, and Growth
+
 ```{r combining figures part 1, include = FALSE, echo = FALSE}
 Figure4 <- (plotinfection + plotsporeyield)/ (plotfitness + plotgrowth) 
 Figure4 
@@ -756,8 +760,8 @@ Figure4
 ggsave("Fig4.png", Figure4, height = 10, width = 10.5, dpi = 600)
 ```
 
-
 # Appendix figures
+
 ```{r plotting infection frequency with spore yield,  echo = FALSE}
 #### Host genotypes differ in susceptibility and transmission potential (spore yield)
 
@@ -894,7 +898,6 @@ Figure_appendix <- (plota + plotb) /(plotc + plotd)
 Figure_appendix
 
 ```
-
 
 ```{r plotting host fitness and within-host pathogen density (spore yield),  echo = FALSE}
 
@@ -1088,6 +1091,7 @@ autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
 ```
 
 # Table 2
+
 ```{r stats Table 2 feeding rates,  echo = FALSE}
 #### Model: Does mean feeding rate differ across spore levels, genotype, and infection status? ####
 #### Full model - singular so doesn't converge.
@@ -1140,7 +1144,6 @@ pairs(marginal)
 ```
 
 # Table 3a
-
 ```{r stats host fitness,  echo = FALSE}
 #### Host GROWTH ####
 
@@ -1204,7 +1207,6 @@ autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
 ```
 
 # Table 3b
-
 ```{r stats host growth rates,  echo = FALSE}
 #### HOST GROWTH ####
 
@@ -1285,7 +1287,7 @@ marginal = emmeans(modsurv1, ~ probinf|Genotype)
 pairs(marginal)
 ```
 
-# Table 4a_1
+# Table 4a_1 Susceptibility
 ```{r stats patterns across all genotypes,  echo = FALSE}
 #### Model: Across all genotypes does the probability of infection differ across feeding rates, final body size (surface area), spore levels  ? ####
 
@@ -1317,7 +1319,7 @@ stats1 <- cbind(Term, stats1)
 autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
 ```
 
-# Table 4b_1 (accounting for genetic variation)
+# Table 4b_1 Susceptibility w/ genetic variation
 ```{r stats, feeding rates and infection frequency - when accounting for genotypic differences,  echo = FALSE}
 
 mod2h <- glm(y ~ mean_feeding_rate*Size_mm2
@@ -1408,8 +1410,7 @@ AIC(modfeedspores1, modfeedspores2, modfeedspores3, modfeedspores4)
  autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
 ```
 
-# Table 4b_2 Spore yield
-
+# Table 4b_2 Spore yield w/ genetic variation
 ```{r stats Table 4b spore yield,  echo = FALSE, warning = FALSE}
 
 # Examine spore yield in animals that were actually infected
@@ -1564,17 +1565,27 @@ autofit(colformat_num(x = flextable(stats1), j = "Pr(>Chisq)", digits = 4))
 ```
 
 #Feeding Rate
+
 ```{r stats feeding rates and infection frequency across all genotypes,  echo = FALSE}
 #### Across all genotypes: Susceptibility and Anorexia/Hyperphagia
 modfeedinf <- glm(meanfeedrate ~ probinf+finalsize 
                   + Spore_level,
                   family = gaussian(link = "identity"),
-                  data = inf1)
+                  data = filter(inf1, Spore_level != 0))
 
 car::Anova(modfeedinf, type = 'III')
+
+#### Across all genotypes: Spore yield and Anorexia/Hyperphagia
+modfeedspore <- glm(meanfeedrate ~ meanspores+finalsize 
+                  + Spore_level,
+                  family = gaussian(link = "identity"),
+                  data = filter(inf1, Spore_level != 0))
+
+car::Anova(modfeedspore, type = 'III')
 ```
 
 #Feeding Rate with genetic variation
+
 ```{r stats feeding rates and infection frequency, echo = FALSE}
 #### Susceptibility and Anorexia/Hyperphagia
 modfeedinf <- glm(meanfeedrate ~ probinf*finalsize 
