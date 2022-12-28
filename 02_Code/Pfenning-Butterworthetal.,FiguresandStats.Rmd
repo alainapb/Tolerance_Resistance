@@ -238,56 +238,21 @@ genolabel <- c("Genotype 4 ", "Genotype 3", "Genotype 2 ", "Genotype 1")
 names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
 ```
 
-#### Alternative options considered for plot 2
-
-#### Multi-panel with susceptibility first and then spore yield
+#### Multi-panel with susceptibility
 
 ```{r plotting prevalence,  echo = FALSE}
-previnf1 <- 
-  ggplot(inf1 %>% 
-           filter( !Spore_level %in% "0") %>% # removing this level b/c need to jitter the other points...but this creates false-positives in the zero spore levels.
-           filter(Genotype=="A45"), aes(x = Spore_level, color = as.factor(Spore_level), y = probinf*100)) +
+ggplot(transform(inf1,
+      Genotype=factor(Genotype,levels=c("Standard","Midland 281","Midland 252", "A45"))), aes(x = Spore_level, color = as.factor(Spore_level), y = probinf*100)) +
   geom_rect(xmin = -Inf, xmax = 25, ymin = -Inf, ymax = 300, fill = "lightgrey", color = "NA") +
-  geom_violin(alpha = 0.5) + 
-  geom_jitter(size = 5, width = 10, height = 0.5, alpha = 0.3)+
-  stat_summary(fun = "mean",
-               geom = "point",
-               color = c("goldenrod1", "darkmagenta"),
-               size = 7) +
-  labs(y = expression("Infection prevalence")) +
-  scale_color_manual(values = c( "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  singlefigtheme +
-  ylab("")+
-  labs(x = expression("Pathogen dose (no. mL"^-1*")")) +
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
-  theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", fill = NA, linewidth = 0.75),  
-        legend.position = "none",
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12)) +
-  scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
-  scale_x_continuous(limits = c(-10, 370), breaks = c(0, 150, 300))
-
-
-previnf2 <- 
-  ggplot(inf1 %>% 
-           filter( !Spore_level %in% "0") %>% # removing this level b/c need to jitter the other points...but this creates false-positives in the zero spore levels.
-           filter(Genotype=="Midland 252"), aes(x = Spore_level, color = as.factor(Spore_level), y = probinf*100)) +
-  geom_rect(xmin = -Inf, xmax = 25, ymin = -Inf, ymax = 300, fill = "lightgrey", color = "NA") +
-  geom_violin(alpha = 0.5) + 
-  geom_jitter(size = 5, width = 10, height = 0.5, alpha = 0.3)+
-  stat_summary(fun = "mean",
-               geom = "point",
-               color = c("goldenrod1", "darkmagenta"),
-               size = 7) +
-  scale_color_manual(values = c("goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
+  geom_jitter(size = 5, width =10, height = 0.00002, alpha = 0.2)+
   singlefigtheme+
-  labs(y = expression("Susceptibility (% infected)"))+
-  labs(x = expression("Pathogen dose (no. mL"^-1*")")) +
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
+  labs(y = expression("Susceptibility (% infected)"), x = expression("Pathogen dose (no. mL"^-1*")")) + 
+  facet_wrap(~ Genotype, nrow = 2) +
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta")) +
+  stat_summary(fun = "mean",
+                geom = "point",
+               color = rep(c("darkcyan", "goldenrod1", "darkmagenta"),4),
+               size = 10) +
   theme(panel.spacing = unit(1.05, "lines"),
         panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
         legend.position = "none",
@@ -295,70 +260,13 @@ previnf2 <-
         legend.text = element_text(size = 8),
         strip.text.x = element_text(size = 12))+
   scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
-  scale_x_continuous(limits = c(-10, 370), breaks = c(0, 150, 300))
+  scale_x_continuous(limits = c(-10, 370), breaks = c(0, 150, 300)) ->Fig2
 
-
-
-previnf3 <- 
-  ggplot(inf1 %>% 
-           filter( !Spore_level %in% "0") %>% # removing this level b/c need to jitter the other points...but this creates false-positives in the zero spore levels.
-           filter(Genotype=="Midland 281"), aes(x = Spore_level, color = as.factor(Spore_level), y = probinf*100)) +
-  geom_rect(xmin = -Inf, xmax = 25, ymin = -Inf, ymax = 300, fill = "lightgrey", color = "NA") +
-  geom_violin(alpha = 0.5) + 
-  geom_jitter(size = 5, width = 10, height = 0.5, alpha = 0.3)+
-  stat_summary(fun = "mean",
-               geom = "point",
-               color = c("goldenrod1", "darkmagenta"),
-               size = 7) +
-  scale_color_manual(values = c("goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  singlefigtheme+
-  ylab("") +
-  xlab("") +
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
-  theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
-        legend.position = "none",
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12))+
-  scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
-  scale_x_continuous(limits = c(-10, 370), breaks = c(0, 150, 300))
-
-
-previnf4 <- 
-  ggplot(inf1 %>% 
-           filter( !Spore_level %in% "0") %>% # removing this level b/c need to jitter the other points...but this creates false-positives in the zero spore levels.
-           filter(Genotype=="Standard"), aes(x = Spore_level, color = as.factor(Spore_level), y = probinf*100)) +
-  geom_rect(xmin = -Inf, xmax = 25, ymin = -Inf, ymax = 300, fill = "lightgrey", color = "NA") +
-  geom_violin(alpha = 0.5) + 
-  geom_jitter(size = 5, width =10, height =0.5, alpha = 0.3)+
-  stat_summary(fun = "mean",
-               geom = "point",
-               color = c("goldenrod1", "darkmagenta"),
-               size = 7) +
-  scale_color_manual(values = c("goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  singlefigtheme+
-  labs(y = expression("Susceptibility (% infected)"))+
-  xlab("") + 
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
-  theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
-        legend.position = "none",
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12))+
-  scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
-  scale_x_continuous(limits = c(-10, 370), breaks = c(0, 150, 300))
-
-# combine figures
-Figure2<-previnf4 + previnf3 + previnf2 + previnf1 
-Figure2
-#ggsave("Figure2_v2.png", Figure2, height = 10, width = 10.5, dpi = 600)
+ggsave("Figure2.png", Fig2, height = 10, width = 10, dpi = 600)
 
 ```
 
+#### Multi-panel with spore yield
 ```{r plotting spore yield, echo = FALSE}
 spores4 <- 
   inf1 %>% 
@@ -466,7 +374,7 @@ spores1 + spores2 + spores3 + spores4
 
 ## Showing results in this layout to emphasize the difference among the genotypes
 
-\*Note, this requires adjusting the y-axis since one genotype consumes
+*Note, this requires adjusting the y-axis since one genotype consumes
 much more relative to the others. Grey shading emphasizes the comparison
 to pathogen-free environments. The focus here is on animals that were
 either unexposed or infected, thus we will exclude animals that were
@@ -474,119 +382,35 @@ exposed but where infections were either cleared or too low to detect.
 
 ```{r plotting feeding rates,  echo = FALSE}
 
-feed4 <- 
-  inf1 %>% 
-  filter(Genotype=="A45") %>%
+inf1 %>% 
   filter(Infected_Uninfected != "Exposed") %>%
-  ggplot(aes(x = Spore_level, fill = as.factor(Spore_level), color = as.factor(Spore_level), y = meanfeedrate)) +
-  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
-  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75,  position = position_dodge(0.2)) +
+  transform(Genotype=factor(Genotype,levels=c("Standard","Midland 281","Midland 252", "A45"))) %>%
+  ggplot(aes(x = Spore_level, 
+                      fill = as.factor(Spore_level), 
+                      color = as.factor(Spore_level), 
+                      y = meanfeedrate)) +
+  geom_rect(xmin = -Inf, xmax = 15.5, 
+            ymin = -Inf, ymax = Inf, 
+            fill = "lightgrey", color = "NA", alpha = 0.01) +
   geom_point(aes(size = 5), pch =1) +
-  scale_shape_manual(values = 1)+
+  scale_shape_manual(values = 1)+  
+  facet_wrap(~ Genotype, scales = "free_y", nrow =2) +
   stat_summary(fun.data = mean_se, size = 1.5, alpha = 1) +
   scale_fill_manual(values = c("darkcyan", "goldenrod1", "darkmagenta"))+
-  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  ylab("")+
-  labs(x = "") +
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta")) +
+  labs(y = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")"), x = expression("Pathogen dose (no. mL"^-1*")"))+
   singlefigtheme+
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
-  theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
-        legend.position = "none",
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12))+
-  scale_y_continuous(limits = c(0.05, 0.5), breaks = c(0.0, 0.1, 0.2, 0.3,0.4))+
-  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
-
-
-feed3 <- 
-  inf1 %>% 
-  filter(Genotype=="Midland 252") %>%
-  filter(Infected_Uninfected != "Exposed") %>%
-  ggplot(aes(x = Spore_level, fill = as.factor(Spore_level), color = as.factor(Spore_level), y = meanfeedrate)) +
-  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
-  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75,  position = position_dodge(0.2)) +
-  geom_point(aes(size = 5), pch =1) +
-  scale_shape_manual(values = 1)+
-  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1) +
-  scale_fill_manual(values = c("darkcyan", "goldenrod1", "darkmagenta"))+
-  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  labs(x = expression("Pathogen dose (no. mL"^-1*")"), y = "") +
-  singlefigtheme+
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
-  theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
-        legend.position = "none",
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12))+
-  scale_y_continuous(limits = c(0.05, 0.5), breaks = c(0.0, 0.1, 0.2, 0.3,0.4))+
-  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
-
-
-feed2 <- 
-  inf1 %>% 
-  filter(Genotype=="Midland 281") %>%
-  filter(Infected_Uninfected != "Exposed") %>%
-  ggplot(aes(x = Spore_level, fill = as.factor(Spore_level), color = as.factor(Spore_level), y = meanfeedrate)) +
-  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
-  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75,  position = position_dodge(0.2)) +
-  geom_point(aes(size = 5), pch =1) +
-  scale_shape_manual(values = 1)+
-  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1) +
-  scale_fill_manual(values = c("darkcyan", "goldenrod1", "darkmagenta"))+
-  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  ylab("")+
-  xlab("")+
-  singlefigtheme+
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
-  theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
-        legend.position = "none",
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12))+
-  scale_y_continuous(limits = c(0.05, 0.5), breaks = c(0.0, 0.1, 0.2, 0.3,0.4))+
-  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
-
-
-
-feed1 <- 
-  inf1 %>% 
-  filter(Genotype=="Standard") %>%
-  filter(Infected_Uninfected != "Exposed") %>%
-  ggplot(aes(x = Spore_level, fill = as.factor(Spore_level), color = as.factor(Spore_level), y = meanfeedrate)) +
-  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
-  geom_point(aes(size = 5), pch =1) +
-  scale_shape_manual(values = 1)+
-  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1) +
-  scale_fill_manual(values = c("darkcyan", "goldenrod1", "darkmagenta"))+
-  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  labs(y = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")"))+
-  xlab("") +
-  singlefigtheme+
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
   theme(panel.spacing = unit(1.05, "lines"),
         panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
         legend.position = "none",
         legend.title = element_text(size = 10),
         legend.text = element_text(size = 8),
         strip.text.x = element_text(size = 12)) +
-  scale_y_continuous(limits = c(0.05, 0.5), breaks = c(0.0, 0.1, 0.2, 0.3, 0.4))+
-  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
-
-# combine figures
-Figure3 <- feed1 + feed3 + feed4 
-Figure3
-Fig3<-Figure3 + theme(legend.position = 'right')
+  #scale_y_continuous(limits = c(0.05, 0.55), breaks = c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5))+
+  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300)) -> Fig3
 
 
-ggsave("FeedingRates.png", Fig3, height = 7, width = 12, dpi = 600)
+ggsave("FeedingRates.png", Fig3, height = 12, width = 12, dpi = 600)
 
 ```
 
