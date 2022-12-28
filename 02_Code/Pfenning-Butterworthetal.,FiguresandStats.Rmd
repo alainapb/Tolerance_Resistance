@@ -219,28 +219,10 @@ set the y-axis for each genotype separately: M281 eats much more than
 everyone else adjusting scale so differences among spore levels for
 other genotypes are easily seen.
 
-```{r setting up plots, include = FALSE, echo = FALSE}
-
-scales_y <- list(
-  "A45" = scale_y_continuous(limits = c(0.05, 0.25), breaks = seq(0.05, 0.15, 0.25)),
-  "Midland 253" = scale_y_continuous(limits = c(0.05, 0.25), breaks = seq(0.05, 0.15, 0.25)),
-  "Midland 281" = scale_y_continuous(limits = c(0.05, 0.65), breaks = seq(0.05, 0.35, 0.65)),
-  "Standard" = scale_y_continuous(limits = c(0.05, 0.25), breaks = seq(0.05, 0.15, 0.25))
-)
-
-genotype = c("A45", "A45", "A45", 
-             "Midland 253", "Midland 253", "Midland 253",
-             "Midland 281", "Midland 281", "Midland 281",
-             "Standard", "Standard", "Standard")
-
-
-genolabel <- c("Genotype 4 ", "Genotype 3", "Genotype 2 ", "Genotype 1") 
-names(genolabel) <- c("A45", "Midland 252", "Midland 281", "Standard")
-```
-
 #### Multi-panel with susceptibility
 
 ```{r plotting prevalence,  echo = FALSE}
+set.seed(566)
 ggplot(transform(inf1,
       Genotype=factor(Genotype,levels=c("Standard","Midland 281","Midland 252", "A45"))), aes(x = Spore_level, color = as.factor(Spore_level), y = probinf*100)) +
   geom_rect(xmin = -Inf, xmax = 25, ymin = -Inf, ymax = 300, fill = "lightgrey", color = "NA") +
@@ -266,109 +248,7 @@ ggsave("Figure2.png", Fig2, height = 10, width = 10, dpi = 600)
 
 ```
 
-#### Multi-panel with spore yield
-```{r plotting spore yield, echo = FALSE}
-spores4 <- 
-  inf1 %>% 
-  filter(Genotype=="A45") %>%
-  filter(Infected_Uninfected != "Exposed") %>%
-  ggplot(aes(x = Spore_level, color = as.factor(Spore_level), y = meanspores)) +
-  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
-  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75, position = position_dodge(0.2)) +
-  geom_point(position = position_dodge(0.2), size = 5, alpha = 0.30) +
-  labs(y = expression(""))+
-  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  singlefigtheme+
-  labs(x = expression("Spore dose (no. mL"^-1*")"))+
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
-  theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", fill = NA, size = 0.25),  
-        #legend.position = "none",
-        #legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12))+
-  scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))+
-  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
 
-
-spores3 <- 
-  inf1 %>% 
-  filter(Genotype=="Midland 252") %>%
-  filter(Infected_Uninfected != "Exposed") %>%
-  ggplot(aes(x = Spore_level, color = as.factor(Spore_level), y = meanspores)) +
-  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
-  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75, position = position_dodge(0.2)) +
-  geom_point(position = position_dodge(0.2), size = 5, alpha = 0.30) +
-  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  singlefigtheme+ 
-  labs(x= expression("Spore dose (no. mL"^-1*")"), y = expression("Susceptibility (infection prevalence)"))+
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
-  theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", fill = NA, size = 0.25),  
-        legend.position = "none",
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12))+
-  scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))+
-  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
-  
-
-spores2 <- 
- inf1 %>% 
-  filter(Genotype=="Midland 281") %>%
-  filter(Infected_Uninfected != "Exposed") %>%
-  ggplot(aes(x = Spore_level, color = as.factor(Spore_level), y = meanspores)) +
-  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
-  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75, position = position_dodge(0.2)) +
-  geom_point(position = position_dodge(0.2), size = 5, alpha = 0.30) +  
-  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  singlefigtheme+
-  labs(y = "", x ="")+
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
-  theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", fill = NA, size = 0.25),  
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        legend.position = "none",
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12))+
-  scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))+
-  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
-
-
-spores1 <- 
-  inf1 %>% 
-  filter(Genotype=="Standard") %>%
-  filter(Infected_Uninfected != "Exposed") %>%
-  ggplot(aes(x = Spore_level, color = as.factor(Spore_level), y = meanspores)) +
-  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf, ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
-  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75, position = position_dodge(0.2)) +
-  geom_point(position = position_dodge(0.2), size = 5, alpha = 0.30) +
-  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta" , "continuous"), name = "Spore level") +
-  singlefigtheme+
-  labs(x = expression(""),y = expression("Susceptibility (infection prevalence)"))+
-  facet_grid(~ Genotype,
-             labeller = labeller(Genotype = genolabel)) +
-    theme(panel.spacing = unit(1.05, "lines"),
-        panel.border = element_rect(color = "black", fill = NA, size = 0.25),  
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        legend.position = "none",
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12))+
-  scale_y_continuous(limits = c(0, 80), breaks = c(0, 20, 40, 60, 80))+
-  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
-
-
-
-# combine figures
-spores1 + spores2 + spores3 + spores4
-```
 
 # Plot: Hosts differ in their immune-mediated changes in feeding behavior
 
@@ -400,17 +280,17 @@ inf1 %>%
   scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta")) +
   labs(y = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")"), x = expression("Pathogen dose (no. mL"^-1*")"))+
   singlefigtheme+
-  theme(panel.spacing = unit(1.05, "lines"),
+   theme(panel.spacing = unit(1.05, "lines"),
         panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
         legend.position = "none",
         legend.title = element_text(size = 10),
         legend.text = element_text(size = 8),
-        strip.text.x = element_text(size = 12)) +
+        strip.text.x = element_text(size = 12))+
   #scale_y_continuous(limits = c(0.05, 0.55), breaks = c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5))+
   scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300)) -> Fig3
 
 
-ggsave("FeedingRates.png", Fig3, height = 12, width = 12, dpi = 600)
+ggsave("FeedingRates.png", Fig3, height = 10, width = 10, dpi = 600)
 
 ```
 
@@ -419,13 +299,15 @@ relative to less susceptible genotypes.
 
 ```{r plotting feeding rates with host growth rates, echo = FALSE}
 plotgrowth <- inf3 %>% 
-  filter(Genotype != "Midland 281") %>%
+  filter(Spore_level != 0) %>%
   ggplot(aes(y = meangrowth, 
              x = meanfeedrate, 
              ymin = meangrowth - segrowth,
              ymax = meangrowth + segrowth, 
              shape = as.factor(Spore_level),
              color = as.factor(Genotype)))+
+  geom_smooth(aes(y = meangrowth, 
+             x = meanfeedrate, group =1), method="lm", color = "black", alpha = 0)+
   geom_point(position = position_dodge(0.2), size = 5)+
   geom_errorbar(aes(ymin = meangrowth - segrowth,
                     ymax = meangrowth + segrowth,
@@ -434,8 +316,8 @@ plotgrowth <- inf3 %>%
                      xmax = meanfeedrate + sefeedrate,
                      height = 0)) +
   geom_point(position = position_dodge(0.2), size = 5) +
-  scale_shape_manual(values=c(17,16,15))+
-  scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
+  scale_shape_manual(values=c(16,15))+
+  #scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
   ylab("Total growth (final - intial size, mm)") + 
   labs(x = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")")) +
   singlefigtheme2+
@@ -447,7 +329,7 @@ plotgrowth <- inf3 %>%
         panel.background = element_blank(), 
         axis.line = element_line(colour = "black")) +
   theme(legend.position = "none") + 
-  scale_x_continuous(limits = c(0.05, 0.65), breaks = c(0.10, 0.35, 0.60))
+  scale_x_continuous(limits = c(0.05, 0.36), breaks = c(0.10, 0.20, 0.30))
 plotgrowth
 ```
 
@@ -455,13 +337,15 @@ plotgrowth
 
 ```{r plotting feeding rates with host fitness (fecundity),  echo = FALSE}
 plotfitness <- inf3 %>% 
-  filter(Genotype != "Midland 281") %>%
+  filter(Spore_level != 0) %>%
   ggplot(aes(y = meanfitnes, 
              x = meanfeedrate, 
              ymin = meanfitnes - sefitness,
              ymax = meanfitnes + sefitness, 
              shape = as.factor(Spore_level),
              color = as.factor(Genotype)))+
+   geom_smooth(aes(y = meanfitnes, 
+             x = meanfeedrate, group =1), method="lm", color = "black", alpha = 0)+
   geom_point(position = position_dodge(0.2), size = 5)+
   geom_errorbar(aes(ymin = meanfitnes - sefitness,
                     ymax = meanfitnes + sefitness,
@@ -470,8 +354,8 @@ plotfitness <- inf3 %>%
                      xmax = meanfeedrate + sefeedrate,
                      height = 0)) +
   geom_point(position = position_dodge(0.2), size = 5) +
-  scale_shape_manual(values=c(17,16,15))+
-  scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
+  scale_shape_manual(values=c(16,15))+
+  #scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
   labs(y = expression("Total reproduction (# host" ^-1*")")) + 
   labs(x = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")")) +
   singlefigtheme2+
@@ -484,7 +368,7 @@ plotfitness <- inf3 %>%
         axis.line = element_line(colour = "black"))+
   theme(legend.position = "none") + 
   scale_y_continuous(limits = c(1.0, 8.0), breaks = c(1.50, 3.50, 5.50, 7.50))+
-  scale_x_continuous(limits = c(0.05, 0.65), breaks = c(0.10, 0.35, 0.60))
+  scale_x_continuous(limits = c(0.05, 0.36), breaks = c(0.10, 0.20, 0.30))
 plotfitness
 
 ```
@@ -492,13 +376,14 @@ plotfitness
 ```{r plotting feeding rates with spore yield/within-host spore density,  echo = FALSE}
 
 plotsporeyield <- inf3 %>% 
-  filter(Genotype != "Midland 281") %>% 
+  filter(Spore_level != 0) %>%
   ggplot(aes(y = meanspores, 
              x = meanfeedrate, 
              ymin = meanspores - sespores,
              ymax = meanspores + sespores, 
              shape = as.factor(Spore_level),
              color = as.factor(Genotype)))+
+  geom_smooth(aes(y = meanspores, x = meanfeedrate, group =1), method="lm", color = "black", alpha = 0)+
   geom_point(position = position_dodge(0.2), size = 5)+
   geom_errorbar(aes(ymin = meanspores - sespores,
                     ymax = meanspores + sespores,
@@ -507,8 +392,8 @@ plotsporeyield <- inf3 %>%
                      xmax = meanfeedrate + sefeedrate,
                      height = 0)) +
   geom_point(position = position_dodge(0.2), size = 5) +
-  scale_shape_manual(values=c(17,16,15))+
-  scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
+  scale_shape_manual(values=c(16,15))+
+  #scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
   labs(y = expression("Spore yield (spores host"^-1* "x 10"^3* ")")) + 
   xlab("")+
   singlefigtheme2+
@@ -523,59 +408,47 @@ plotsporeyield <- inf3 %>%
         legend.box = "horizontal",
         legend.key.size = unit(0.01, 'cm'))+
   labs(shape = "Pathogen dose", color = "Host genotype") +
-  scale_x_continuous(limits = c(0.05, 0.65), breaks = c(0.10, 0.35, 0.60))
+  scale_y_continuous(limits = c(0, 110))+
+  scale_x_continuous(limits = c(0.05, 0.36), breaks = c(0.10, 0.20, 0.30))
 plotsporeyield
+
 ```
 
 # hosts ate significantly less when exposed to more pathogen spores.
 
 ```{r plotting feeding rates and infection frequency,  echo = FALSE}
 plotinfection <- inf3 %>% 
-  filter(Genotype != "Midland 281") %>%
+  filter(Spore_level != 0) %>%
   ggplot(aes(y = probinf*100, 
              x = meanfeedrate, 
-             #ymin = meaninf - stdevDinf,
-             #ymax = meaninf + stdevDinf, 
              shape = as.factor(Spore_level),
              color = as.factor(Genotype)))+
+  geom_smooth(aes(y = probinf*100, x = meanfeedrate, group =1), method="lm", color = "black", alpha = 0)+
   geom_point(position = position_dodge(0.2), size = 5, alpha = 0.7)+
-  #geom_errorbar(aes(ymin = meaninf - stdevDinf,
-  #                  ymax = meaninf + stdevDinf,
-  #                  width = 0)) +
   geom_errorbarh(aes(xmin = meanfeedrate - sefeedrate, 
                      xmax = meanfeedrate + sefeedrate,
                      height = 0)) +
   geom_point(position = position_dodge(0.2), size = 5, alpha = 0.7) +
-  scale_shape_manual(values=c(17,16,15))+
-  scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
+  scale_shape_manual(values=c(16,15))+
+  #scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
   ylab("Susceptibility (% infected)")  + 
   xlab("")+
-  #labeller = labeller(Genotype = genolabel)+
   singlefigtheme2+
   theme(panel.spacing = unit(1.05, "lines"),
         panel.border = element_rect(color = "black", 
-                                    fill = NA, size = 0.75))+  
-  theme(panel.grid.major = element_blank(), 
+                                    fill = NA, size = 0.75),
+        panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_blank(), 
-        axis.line = element_line(colour = "black")) +
-  theme(legend.position = "none")+
+        axis.line = element_line(colour = "black"), 
+        legend.position = "none")+
   scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
-  scale_x_continuous(limits = c(0.05, 0.65), breaks = c(0.10, 0.35, 0.60))
-
-ggplot(data = filter(inf3, Genotype != "Midland 281"), aes(y = probinf*100, 
-             x = meanfeedrate))+
-  geom_smooth(method="lm", color = "black")+
-  scale_y_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
-  scale_x_continuous(limits = c(0.05, 0.65), breaks = c(0.10, 0.35, 0.60))
-
-inf3 %>% 
-  filter(Genotype != "Midland 281") %>%
-  glm(mean)
+  scale_x_continuous(limits = c(0.05, 0.36), breaks = c(0.10, 0.2, 0.3))
+plotinfection 
 
 ```
 
-\#Feeding and Susceptibility, Spore Yield, Fitness, and Growth
+#Feeding and Susceptibility, Spore Yield, Fitness, and Growth
 
 ```{r combining figures part 1, include = FALSE, echo = FALSE}
 Figure4 <- (plotinfection + plotsporeyield)/ (plotfitness + plotgrowth) 
@@ -586,14 +459,34 @@ ggsave("Fig4.png", Figure4, height = 10, width = 10.5, dpi = 600)
 
 # Appendix figures
 
-```{r plotting infection frequency with spore yield,  echo = FALSE}
-#### Host genotypes differ in susceptibility and transmission potential (spore yield)
+## Multi-panel with spore yield
+```{r plotting spore yield, echo = FALSE}
+inf1 %>% 
+  filter(Infected_Uninfected != "Exposed") %>%
+  transform(Genotype=factor(Genotype,levels=c("Standard","Midland 281","Midland 252", "A45"))) %>%
+  ggplot(aes(x = Spore_level, color = as.factor(Spore_level), y = meanspores)) +
+  geom_rect(xmin = -Inf, xmax = 15.5, ymin = -Inf,ymax = Inf, fill = "lightgrey", color = "NA", alpha = 0.01) +
+    geom_point(position = position_dodge(0.2), size = 5, alpha = 0.30) +
+  facet_wrap(~ Genotype, nrow =2) +
+  stat_summary(fun.data = mean_se, size = 1.5, alpha = 1.75, position = position_dodge(0.2)) +
+  scale_color_manual(values = c("darkcyan", "goldenrod1", "darkmagenta")) +
+  singlefigtheme+ 
+  labs(x= expression("Spore dose (no. mL"^-1*")"), y = expression("Susceptibility (spore yield)"))+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size =1),  
+        legend.position = "none",
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
+        strip.text.x = element_text(size = 12))+
+  scale_y_continuous(limits = c(0, 125), breaks = c(0, 25, 50, 75, 100, 125))+
+  scale_x_continuous(limits = c(0, 300), breaks = c(0, 150, 300))
 
-genolabel <- c("Genotype 1",  "Genotype 3", "Genotype 4") 
-names(genolabel) <- c("Standard", "Midland 252","A45")
+```
+
+## Host genotypes differ in susceptibility and transmission potential (spore yield)
+```{r plotting infection frequency with spore yield,  echo = FALSE}
 
 plota <- inf3 %>% 
-  filter(Genotype != "Midland 281") %>%
   ggplot(aes(x = probinf*100, 
              y = meanspores, 
              shape = as.factor(Spore_level),
@@ -603,7 +496,6 @@ plota <- inf3 %>%
                     width = 0)) +
   geom_point(position = position_dodge(0), size = 5) +
   scale_shape_manual(values=c(17,16,15))+
-  scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
   xlab("") + 
   labs(y = expression("Spore yield (spores host"^-1* "x 10"^3* ")"))+
   singlefigtheme2+
@@ -622,7 +514,6 @@ plota <- inf3 %>%
 
 
 plotb <- inf3 %>% 
-  filter(Genotype != "Midland 281") %>%
   ggplot(aes(x = probinf*100, 
              y = meanfitnes, 
              shape = as.factor(Spore_level),
@@ -632,7 +523,6 @@ plotb <- inf3 %>%
                     width = 0)) +
   geom_point(position = position_dodge(0), size = 5) +
   scale_shape_manual(values=c(17,16,15))+
-  scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
   xlab("") + 
   labs(y = expression("Total reproduction (offspring host"^-1*")"))+
   singlefigtheme2+
@@ -654,7 +544,6 @@ plotb <- inf3 %>%
 
 
 plotc <- inf3 %>% 
-  filter(Genotype != "Midland 281") %>%
   ggplot(aes(x = probinf*100, 
              y = meangrowth, 
              shape = as.factor(Spore_level),
@@ -664,7 +553,6 @@ plotc <- inf3 %>%
                     width = 0)) +
   geom_point(position = position_dodge(0), size = 5) +
   scale_shape_manual(values=c(17,16,15))+
-  scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
   xlab("Susceptibility (% infected)") + 
   labs(y = expression("Total growth (final - initial size, mm"^2*")")) +
   singlefigtheme2+
@@ -687,7 +575,6 @@ plotc <- inf3 %>%
 
 
 plotd <- inf3 %>% 
-  filter(Genotype != "Midland 281")%>%
   ggplot(aes(x = probinf*100, 
              y = meandaydeath, 
              shape = as.factor(Spore_level),
@@ -697,7 +584,6 @@ plotd <- inf3 %>%
                     width = 0)) +
   geom_point(position = position_dodge(0), size = 5) +
   scale_shape_manual(values=c(17,16,15))+
-  scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
   xlab("Susceptibility (% infected)") + 
   labs(y = expression("Survival (day of death )")) +
   singlefigtheme2+
