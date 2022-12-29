@@ -13,16 +13,12 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
 
 ```{r load libraries, include = FALSE, warning = FALSE, message = FALSE}
-devtools::install_github("zeehio/facetscales")
 library(ggplot2)
 library(patchwork)
 library(tidyverse)
 library(cowplot)  
 library(here)
-library(facetscales)
-require(facetscales)
 library(lme4)
-#library(countreg)
 library(MASS)
 library(pscl)
 library(flextable)
@@ -96,10 +92,134 @@ plot(fitSTD, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), mai
 ```
 In Standard, there was only one individual that was exposed to 150 sp/ml that did not get infected and that individual died eleven days after the exposure (blue line). 
 
+
+
+
+
+
+
+## Host genotypes differ in susceptibility and transmission potential (spore yield)
+```{r plotting infection frequency with spore yield,  echo = FALSE}
+
+inf3<-readRDS("inf3.RDS")
+
+plota <- inf3 %>% 
+  ggplot(aes(x = probinf*100, 
+             y = meanspores, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_errorbar(aes(ymin = meanspores - sespores, 
+                    ymax = meanspores + sespores,
+                    width = 0)) +
+  geom_point(position = position_dodge(0), size = 5) +
+  scale_shape_manual(values=c(17,16,15))+
+  xlab("") + 
+  labs(y = expression("Spore yield (spores host"^-1* "x 10"^3* ")"))+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75),  
+        legend.title = element_text(size = 10),
+        strip.text.x = element_text(size = 12, face = "bold"),
+        legend.position = "none") +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"))+
+  labs(shape = "Pathogen dose", color = "Host genotype")+
+  scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))
+
+
+plotb <- inf3 %>% 
+  ggplot(aes(x = probinf*100, 
+             y = meanfitnes, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_errorbar(aes(ymin = meanfitnes - sefitness, 
+                    ymax = meanfitnes + sefitness,
+                    width = 0)) +
+  geom_point(position = position_dodge(0), size = 5) +
+  scale_shape_manual(values=c(17,16,15))+
+  xlab("") + 
+  labs(y = expression("Total reproduction (offspring host"^-1*")"))+
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75),  
+        legend.position = "top",
+        #legend.position = c(0.95,0.75),
+        legend.title = element_text(size = 10),
+        strip.text.x = element_text(size = 12, face = "bold")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"))+
+  theme(legend.position = "none")+
+  labs(shape = "Pathogen dose", color = "Host genotype")+
+  scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_y_continuous(limits = c(0, 8), breaks = c(0, 2, 4, 6, 8))
+
+
+plotc <- inf3 %>% 
+  ggplot(aes(x = probinf*100, 
+             y = meangrowth, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_errorbar(aes(ymin = meangrowth - segrowth, 
+                    ymax = meangrowth + segrowth,
+                    width = 0)) +
+  geom_point(position = position_dodge(0), size = 5) +
+  scale_shape_manual(values=c(17,16,15))+
+  xlab("Susceptibility (% infected)") + 
+  labs(y = expression("Growth (final - initial size, mm"^2*")")) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", 
+                                    fill = NA, size = 0.75),  
+        legend.position = "top",
+        #legend.position = c(0.95,0.75),
+        legend.title = element_text(size = 8),
+        legend.text=element_text(size = 8),
+        strip.text.x = element_text(size = 12, face = "bold")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"))+
+  theme(legend.position = "none")+
+  labs(shape = "Pathogen dose", color = "Host genotype")+
+  scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_y_continuous(limits = c(0.6, 1.4), breaks = c(0.6, 0.8, 1.0, 1.2,1.4))
+
+
+plotd <- inf3 %>% 
+  ggplot(aes(x = probinf*100, 
+             y = meandaydeath, 
+             shape = as.factor(Spore_level),
+             color = as.factor(Genotype)))+
+  geom_errorbar(aes(ymin = meandaydeath - sedeathday, 
+                    ymax = meandaydeath + sedeathday,
+                    width = 0)) +
+  geom_point(position = position_dodge(0), size = 5) +
+  scale_shape_manual(values=c(17,16,15))+
+  xlab("Susceptibility (% infected)") + 
+  labs(y = expression("Survival (day of death )")) +
+  theme(panel.spacing = unit(1.05, "lines"),
+        panel.border = element_rect(color = "black", fill = NA, size = 0.75),  
+        legend.title = element_text(size = 8),
+        legend.text=element_text(size = 8),
+        strip.text.x = element_text(size = 12, face = "bold")) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(), 
+        axis.line = element_line(colour = "black"))+
+  labs(shape = "Pathogen dose", color = "Host genotype")+
+  scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
+  scale_y_continuous(limits = c(10, 14), breaks = c(10, 12, 14))
+
+Figure_appendix <- (plota + plotb) /(plotc + plotd) 
+Figure_appendix
+
+```
+
 ## Impacts of Feeding Behavior
 ```{r plotting feeding rates and host longevity (mean day of death),  echo = FALSE}
-inf3<-readRDS('inf3.RDS')
-
 plotlifespan <- inf3 %>% 
   ggplot(aes(y = meandaydeath, 
              x = meanfeedrate, 
@@ -156,7 +276,6 @@ plotdayfirstclutch <- inf3 %>%
 plotdayfirstclutch
 ```
 
-\newpage
 ## Impacts of Infection
 ```{r plotting spore yield (within-host pathogen density) and host growth,  echo = FALSE}
 plotgrowthyield <- inf3 %>% 
