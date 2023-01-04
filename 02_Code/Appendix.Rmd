@@ -44,61 +44,9 @@ fit<-lm(sp.ul ~ flow_sp_ul - 1, data = sporecheck)
 summary(fit)$r.squared
 ```
 
-## Survival Analyses
-```{r survival, echo = FALSE}
-
-#### Survival Analyses ####
-
-# Now, examine if any of the genotypes differ and by spores
-inf1<-readRDS("inf1.RDS")
-inf1$grouped <- with(inf1, interaction(Spore_level, Infected_Uninfected))
-
-#A45
-geno1 <- with(inf1, subset(inf1, Genotype == "A45"))
-attach(geno1)
-
-recA45 <- survival::Surv(meandaydeath, censored)
-fitA45 <- with(geno1, fit <- survival::survfit(recA45 ~ geno1$grouped, type = "kaplan-meier", conf.type = "log-log"))
-plot(fitA45, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "A45", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
-legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
-
-# Midland 252
-geno2 <- with(inf1, subset(inf1, Genotype == "Midland 252"))
-attach(geno2)
-
-recM252 <-survival::Surv(meandaydeath, censored)
-fit252 <- with(geno2, fit <- survival::survfit(recM252 ~ geno2$grouped, type = "kaplan-meier", conf.type = "log-log"))
-plot(fit252,col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "Midland 252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
-```
-
-## Survival Analyses Continued
-```{r continued, echo = FALSE}
-#Midland 281
-geno3 <- with(inf1, subset(inf1, Genotype == "Midland 281"))
-attach(geno3)
-
-recM281 <- survival::Surv(meandaydeath, censored)
-fit281 <- with(geno3, fit <- survival::survfit(recM281 ~ geno3$grouped, type = "kaplan-meier", conf.type = "log-log"))
-plot(fit281, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "Midland 281", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
-legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
-
-#Standard
-geno4 <- with(inf1, subset(inf1, Genotype == "Standard"))
-attach(geno4)
-
-recSTD <- survival::Surv(meandaydeath, censored)
-fitSTD <- with(geno4, fit <- survival::survfit(recSTD ~ geno4$grouped, type = "kaplan-meier", conf.type = "log-log"))
-plot(fitSTD, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "Standard",  xlab= "Days since exposure", ylab = "Survival")
-```
-In Standard, there was only one individual that was exposed to 150 sp/ml that did not get infected and that individual died eleven days after the exposure (blue line). 
-
-
-
-
-
-
-
 ## Host genotypes differ in susceptibility and transmission potential (spore yield)
+
+
 ```{r plotting infection frequency with spore yield,  echo = FALSE}
 
 inf3<-readRDS("inf3.RDS")
@@ -213,9 +161,9 @@ plotd <- inf3 %>%
   scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100))+
   scale_y_continuous(limits = c(10, 14), breaks = c(10, 12, 14))
 
-Figure_appendix <- (plota + plotb) /(plotc + plotd) 
-Figure_appendix
+Figure_appendix <- plota + plotb +  plotc + plotd +  plot_layout(nrow = 2, ncol = 2, heights = unit(c(4, 4), c('cm', 'cm')))
 
+Figure_appendix
 ```
 
 ## Impacts of Feeding Behavior
@@ -330,5 +278,53 @@ plotfityield <- inf3 %>%
         axis.line = element_line(colour = "black")) 
 plotfityield
 ```
+
+## Survival Analyses
+```{r survival, echo = FALSE}
+
+#### Survival Analyses ####
+
+# Now, examine if any of the genotypes differ and by spores
+inf1<-readRDS("inf1.RDS")
+inf1$grouped <- with(inf1, interaction(Spore_level, Infected_Uninfected))
+
+#A45
+geno1 <- with(inf1, subset(inf1, Genotype == "A45"))
+attach(geno1)
+
+recA45 <- survival::Surv(meandaydeath, censored)
+fitA45 <- with(geno1, fit <- survival::survfit(recA45 ~ geno1$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fitA45, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "A45", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
+
+# Midland 252
+geno2 <- with(inf1, subset(inf1, Genotype == "Midland 252"))
+attach(geno2)
+
+recM252 <-survival::Surv(meandaydeath, censored)
+fit252 <- with(geno2, fit <- survival::survfit(recM252 ~ geno2$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fit252,col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "Midland 252", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+```
+
+## Survival Analyses Continued
+```{r continued, echo = FALSE}
+#Midland 281
+geno3 <- with(inf1, subset(inf1, Genotype == "Midland 281"))
+attach(geno3)
+
+recM281 <- survival::Surv(meandaydeath, censored)
+fit281 <- with(geno3, fit <- survival::survfit(recM281 ~ geno3$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fit281, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "Midland 281", xlab= "Days since exposure", ylab = "Survival", ylim= range(0.5,1))
+legend(x = 'bottomleft', c("0", "150 Uninfected", "150 Infected", "300 Uninfected", "300 Infected"),  lty = 1, bty  ='n', col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), cex = 0.90)
+
+#Standard
+geno4 <- with(inf1, subset(inf1, Genotype == "Standard"))
+attach(geno4)
+
+recSTD <- survival::Surv(meandaydeath, censored)
+fitSTD <- with(geno4, fit <- survival::survfit(recSTD ~ geno4$grouped, type = "kaplan-meier", conf.type = "log-log"))
+plot(fitSTD, col = c("darkcyan", "cyan", "darkmagenta", "magenta", "black"), main = "Standard",  xlab= "Days since exposure", ylab = "Survival")
+```
+In Standard, there was only one individual that was exposed to 150 sp/ml that did not get infected and that individual died eleven days after the exposure (blue line). 
 
 
