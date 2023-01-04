@@ -311,8 +311,7 @@ plotgrowth <- inf3 %>%
   geom_point(position = position_dodge(0.2), size = 5) +
   scale_shape_manual(values=c(16,15))+
   #scale_color_manual(values=c("#F8766D", "#7CAE00", "#C77CFF"))+
-  ylab("Total growth (final - intial size, mm)") + 
-  labs(x = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")")) +
+  labs(x = expression("LN Feeding rate (mL"^-1* ind^-1* hr^-1*")"), y = expression("Total growth (final - intial size, mm"^2*")")) +
   singlefigtheme2+
   theme(panel.spacing = unit(1.05, "lines"),
         panel.border = element_rect(color = "black", 
@@ -462,10 +461,10 @@ summary(lm(probinf*100 ~ meanfeedrate, family = gaussian(link = "identity"), dat
 #Feeding and Susceptibility, Spore Yield, Fitness, and Growth
 
 ```{r combining figures part 1, include = FALSE, echo = FALSE}
-Figure4 <- (plotinfection + plotsporeyield)/ (plotfitness + plotgrowth) 
-Figure4 
+Figure3 <- (plotinfection + plotsporeyield)/ (plotfitness + plotgrowth) 
+Figure3 
 
-ggsave("Fig4.png", Figure4, height = 10, width = 10.5, dpi = 600)
+ggsave("Fig3.png", Figure3, height = 10, width = 10.5, dpi = 600)
 ```
 
 
